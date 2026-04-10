@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
   # Build accessible reusable components
 
@@ -9,3 +10,7 @@
 
   Run `npm run dev` to start the development server.
   
+=======
+# SkillBridge
+A full-stack skill exchange platform where users can teach and learn from each other through skill swaps, real-time chat, and session scheduling.
+>>>>>>> 17543dc36a6ba1c567c0c6e5eb477efebc732803
