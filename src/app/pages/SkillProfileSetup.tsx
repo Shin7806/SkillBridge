@@ -2,7 +2,7 @@ import { Button } from "../components/Button";
 import { Input, Textarea } from "../components/Input";
 import { Card, CardHeader, CardTitle, CardDescription } from "../components/Card";
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { SkillAutocomplete } from "../components/SkillAutocomplete";
 import { SKILL_SUGGESTIONS } from "../data/skills";
 import { supabase } from "../../lib/supabase";
@@ -23,6 +23,7 @@ export default function SkillProfileSetup() {
     void (async () => {
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
+
       if (!data.session) {
         window.location.replace("/login");
         return;
@@ -39,6 +40,7 @@ export default function SkillProfileSetup() {
         window.location.replace("/dashboard");
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -46,8 +48,8 @@ export default function SkillProfileSetup() {
 
   const normalizeSkill = (s: string) => s.trim().replace(/\s+/g, " ");
 
-  const addSkill = (type: "teach" | "learn") => {
-    const skill = normalizeSkill(newSkill);
+  const addSkill = (type: "teach" | "learn", skillValue?: string) => {
+    const skill = normalizeSkill(skillValue || newSkill);
     if (!skill) return;
 
     if (type === "teach") {
@@ -63,6 +65,7 @@ export default function SkillProfileSetup() {
       }
       setSkillsToLearn([...skillsToLearn, skill]);
     }
+
     setNewSkill("");
   };
 
@@ -78,6 +81,7 @@ export default function SkillProfileSetup() {
     if (skillsToTeach.length === 0 || skillsToLearn.length === 0) return;
 
     setIsCompleting(true);
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.user) {
@@ -86,7 +90,10 @@ export default function SkillProfileSetup() {
       }
 
       const allSkills = await getAllSkills();
-      const nameToId = new Map(allSkills.map((s) => [s.name.trim().toLowerCase(), s.id]));
+      const nameToId = new Map(
+        allSkills.map((s) => [s.name.trim().toLowerCase(), s.id])
+      );
+
       const entries: UserSkillInput[] = [
         ...skillsToTeach.map((name) => {
           const id = nameToId.get(name.trim().toLowerCase());
@@ -102,7 +109,7 @@ export default function SkillProfileSetup() {
         await saveUserSkills(entries);
       } else {
         console.warn(
-          "Setup: skill names did not match any row in public.skills. Completing onboarding; add skills from Profile after seeding skills."
+          "Setup: skill names did not match any row in public.skills."
         );
       }
 
@@ -121,32 +128,12 @@ export default function SkillProfileSetup() {
   return (
     <div className="w-full max-w-2xl mx-auto px-4 py-12">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Set up your profile</h1>
-        <p className="text-muted-foreground">Tell us about your skills and what you'd like to learn</p>
-      </div>
-
-      {/* Progress Steps */}
-      <div className="flex items-center justify-center gap-2 mb-8">
-        {[1, 2, 3].map((num) => (
-          <div key={num} className="flex items-center">
-            <div
-              className={`size-10 rounded-full flex items-center justify-center font-semibold ${
-                step >= num
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-slate-200 text-muted-foreground"
-              }`}
-            >
-              {num}
-            </div>
-            {num < 3 && (
-              <div
-                className={`w-16 h-1 ${
-                  step > num ? "bg-primary" : "bg-slate-200"
-                }`}
-              />
-            )}
-          </div>
-        ))}
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          Set up your profile
+        </h1>
+        <p className="text-muted-foreground">
+          Tell us about your skills and what you'd like to learn
+        </p>
       </div>
 
       <Card variant="elevated">
@@ -159,17 +146,18 @@ export default function SkillProfileSetup() {
               </CardDescription>
             </CardHeader>
 
-            <div className="flex gap-2">
+            <div>
               <SkillAutocomplete
                 placeholder="e.g., JavaScript, Guitar, Spanish"
                 value={newSkill}
                 onChange={setNewSkill}
                 suggestions={SKILL_SUGGESTIONS}
                 onEnter={() => addSkill("teach")}
+                onSelect={(skill) => {
+                  addSkill("teach", skill);
+                  setNewSkill("");
+                }}
               />
-              <Button type="button" onClick={() => addSkill("teach")} variant="primary">
-                <Plus className="size-5" />
-              </Button>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -179,12 +167,7 @@ export default function SkillProfileSetup() {
                   className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-primary rounded-lg"
                 >
                   {skill}
-                  <button
-                    type="button"
-                    onClick={() => removeSkill("teach", index)}
-                    className="hover:opacity-80"
-                    aria-label={`Remove ${skill}`}
-                  >
+                  <button onClick={() => removeSkill("teach", index)}>
                     <X className="size-4" />
                   </button>
                 </span>
@@ -192,7 +175,7 @@ export default function SkillProfileSetup() {
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} disabled={skillsToTeach.length === 0}>
+              <Button onClick={() => setStep(2)} disabled={!skillsToTeach.length}>
                 Next
               </Button>
             </div>
@@ -208,17 +191,18 @@ export default function SkillProfileSetup() {
               </CardDescription>
             </CardHeader>
 
-            <div className="flex gap-2">
+            <div>
               <SkillAutocomplete
                 placeholder="e.g., Python, Photography, French"
                 value={newSkill}
                 onChange={setNewSkill}
                 suggestions={SKILL_SUGGESTIONS}
                 onEnter={() => addSkill("learn")}
+                onSelect={(skill) => {
+                  addSkill("learn", skill);
+                  setNewSkill("");
+                }}
               />
-              <Button type="button" onClick={() => addSkill("learn")} variant="primary">
-                <Plus className="size-5" />
-              </Button>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -228,12 +212,7 @@ export default function SkillProfileSetup() {
                   className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-accent rounded-lg"
                 >
                   {skill}
-                  <button
-                    type="button"
-                    onClick={() => removeSkill("learn", index)}
-                    className="hover:opacity-80"
-                    aria-label={`Remove ${skill}`}
-                  >
+                  <button onClick={() => removeSkill("learn", index)}>
                     <X className="size-4" />
                   </button>
                 </span>
@@ -244,7 +223,7 @@ export default function SkillProfileSetup() {
               <Button onClick={() => setStep(1)} variant="outline">
                 Back
               </Button>
-              <Button onClick={() => setStep(3)} disabled={skillsToLearn.length === 0}>
+              <Button onClick={() => setStep(3)} disabled={!skillsToLearn.length}>
                 Next
               </Button>
             </div>
@@ -262,7 +241,7 @@ export default function SkillProfileSetup() {
 
             <Textarea
               label="Bio"
-              placeholder="I'm a software developer who loves teaching programming and wants to learn design..."
+              placeholder="I'm a software developer who loves teaching programming..."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={6}
@@ -273,13 +252,11 @@ export default function SkillProfileSetup() {
                 Back
               </Button>
               <Button
-                type="button"
-                variant="primary"
                 onClick={() => void handleCompleteSetup()}
                 disabled={
                   isCompleting ||
-                  skillsToTeach.length === 0 ||
-                  skillsToLearn.length === 0
+                  !skillsToTeach.length ||
+                  !skillsToLearn.length
                 }
               >
                 {isCompleting ? "Saving…" : "Complete Setup"}

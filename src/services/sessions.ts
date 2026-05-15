@@ -42,11 +42,38 @@ export async function getMySessions(): Promise<Session[]> {
 
   const { data, error } = await supabase
     .from("sessions")
-    .select("*")
-    .eq("created_by", userId)
+    .select(`
+      *,
+      swap_requests!inner (
+        id,
+        sender_id,
+        receiver_id,
+        offered_skill_id,
+        requested_skill_id,
+        status
+      )
+    `)
+    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`, {
+      foreignTable: "swap_requests",
+    })
     .order("created_at", { ascending: false });
 
   if (error) throw error;
   return (data as Session[]) ?? [];
 }
 
+export async function updateSessionStatus(params: {
+  session_id: UUID;
+  status: SessionStatus;
+}): Promise<Session> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({ status: params.status })
+    .eq("id", params.session_id)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Failed to update session status");
+  return data as Session;
+}

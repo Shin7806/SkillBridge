@@ -12,6 +12,7 @@ type SkillAutocompleteProps = {
   className?: string;
   maxResults?: number;
   onEnter?: () => void;
+  onSelect?: (skill: string) => void;
 };
 
 export function SkillAutocomplete({
@@ -25,6 +26,7 @@ export function SkillAutocomplete({
   className,
   maxResults = 8,
   onEnter,
+  onSelect,
 }: SkillAutocompleteProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +65,9 @@ export function SkillAutocomplete({
     onChange(skill);
     setIsOpen(false);
     setActiveIndex(-1);
+    if (onSelect) {
+      onSelect(skill);
+    }
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 

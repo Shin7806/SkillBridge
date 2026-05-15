@@ -1,7 +1,7 @@
 export type SkillType = "teach" | "learn";
 export type SkillLevel = "beginner" | "intermediate" | "advanced";
 
-export type SwapRequestStatus = "pending" | "accepted" | "rejected";
+export type SwapRequestStatus = "pending" | "accepted" | "rejected" | "open";
 export type SessionStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
 // Keep these shapes aligned with your SQL column names (snake_case)
@@ -39,7 +39,7 @@ export interface UserSkill {
 export interface SwapRequest {
   id: UUID;
   sender_id: UUID;
-  receiver_id: UUID;
+  receiver_id: UUID | null;
   offered_skill_id: UUID;
   requested_skill_id: UUID;
   message: string | null;

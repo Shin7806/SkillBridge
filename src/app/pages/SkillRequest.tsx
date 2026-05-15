@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Input, Textarea } from "../components/Input";
 import { Card, CardHeader, CardTitle, CardDescription } from "../components/Card";
@@ -6,6 +6,10 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { SkillAutocomplete } from "../components/SkillAutocomplete";
 import { SKILL_SUGGESTIONS } from "../data/skills";
+import { getAllSkills } from "../../services/skills";
+import { supabase } from "../../lib/supabase";
+import { getUserSkills } from "../../services/userSkills";
+import { sendSwapRequest } from "../../services/swapRequests";
 
 export default function SkillRequest() {
   const [formData, setFormData] = useState({
@@ -29,10 +33,86 @@ export default function SkillRequest() {
     setGoals(goals.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle request submission
-    window.location.href = "/matching";
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUser = userData.user;
+
+      if (!currentUser) {
+        console.error("No user logged in");
+        return;
+      }
+
+      // 1. Resolve requested skill ID
+      const allSkills = await getAllSkills();
+      const selectedSkill = allSkills.find(
+        (s) => s.name.toLowerCase() === formData.skill.trim().toLowerCase()
+      );
+
+      if (!selectedSkill) {
+        console.error("Skill not found:", formData.skill);
+        alert("Please select a valid skill from suggestions");
+        return;
+      }
+
+      console.log(selectedSkill); // Debug requirement
+
+      // 2. GET A RECEIVER (TEMP FIX)
+      const { data: users } = await supabase
+        .from("profiles")
+        .select("id")
+        .neq("id", currentUser.id);
+
+      if (!users || users.length === 0) {
+        console.error("No users available");
+        return;
+      }
+
+      const receiver = users[0]; // TEMP
+
+      console.log("Creating request with:", {
+        sender: currentUser.id,
+        receiver: receiver.id,
+        skill: selectedSkill.id,
+      });
+
+      const { data, error } = await supabase
+        .from("swap_requests")
+        .insert({
+          sender_id: currentUser.id,
+          receiver_id: receiver.id,
+          offered_skill_id: selectedSkill.id, // Using selectedSkill for both as per instructions
+          requested_skill_id: selectedSkill.id,
+          message: formData.description.trim() || null,
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("REQUEST ERROR:", error);
+        alert(error.message);
+        return;
+      }
+
+      console.log("SUCCESS:", data);
+      alert("Request created successfully");
+
+      // 4. Redirect to requests page so they see it
+      window.location.href = "/requests";
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setError(err instanceof Error ? err.message : "Failed to create request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -40,9 +120,11 @@ export default function SkillRequest() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Request a Skill</h1>
         <p className="text-muted-foreground">
-          Tell us what you'd like to learn and we'll help you find the perfect teacher
+          Tell us what you'd like to learn and create an open request
         </p>
       </div>
+
+      {error && <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
 
       <Card variant="elevated">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -169,8 +251,8 @@ export default function SkillRequest() {
             <Link to="/dashboard">
               <Button variant="outline">Cancel</Button>
             </Link>
-            <Button type="submit" variant="primary" size="lg">
-              Find Teachers
+            <Button type="submit" variant="primary" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Request"}
             </Button>
           </div>
         </form>

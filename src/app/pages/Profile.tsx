@@ -1,452 +1,419 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
 import { Button } from "../components/Button";
 import { Input, Textarea } from "../components/Input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/Card";
-import { LogOut, Plus, X, Camera, Star } from "lucide-react";
-import { SkillAutocomplete } from "../components/SkillAutocomplete";
-import { SKILL_SUGGESTIONS } from "../data/skills";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "../components/Card";
+import { Camera, Loader2, Plus, X } from "lucide-react";
+
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useProfile } from "../../hooks/useProfile";
-import { getAvatarUrlForUser, getDisplayName } from "../../utils/avatar";
+
+import { getAvatarUrl, getDisplayName } from "../../utils/avatar";
 import { updateMyProfile } from "../../services/profile";
+import { uploadAvatar } from "../../services/avatar";
+
+import { getUserSkills, replaceUserSkills } from "../../services/userSkills";
 import { getAllSkills } from "../../services/skills";
-import { getUserSkills, saveUserSkills, type UserSkillInput } from "../../services/userSkills";
-import { signOut } from "../../services/auth";
 
 export default function Profile() {
   const user = useCurrentUser();
   const profile = useProfile(user?.id);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
     name: "",
-    email: "",
     bio: "",
-    location: "",
   });
 
-  const [skillsToTeach, setSkillsToTeach] = useState<string[]>([]);
-  const [skillsToLearn, setSkillsToLearn] = useState<string[]>([]);
-  const [newSkill, setNewSkill] = useState("");
-  const [avatarImgFailed, setAvatarImgFailed] = useState(false);
+  const [allSkills, setAllSkills] = useState<any[]>([]);
+  const [teachSkills, setTeachSkills] = useState<string[]>([]);
+  const [learnSkills, setLearnSkills] = useState<string[]>([]);
+
+  // 🔥 SEARCH STATES
+  const [teachSearch, setTeachSearch] = useState("");
+  const [learnSearch, setLearnSearch] = useState("");
+
+  const [showTeachPicker, setShowTeachPicker] = useState(false);
+  const [showLearnPicker, setShowLearnPicker] = useState(false);
 
   const displayName = getDisplayName(user, profile);
-  const avatarSrc = getAvatarUrlForUser(user, profile);
-  const avatarInitials = displayName
-    .split(/\s+/)
-    .map((w) => w[0])
+  const avatarUrl = getAvatarUrl(profile?.avatar_url);
+
+  const initials = displayName
+    .split(" ")
+    .map((w: string) => w[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
 
+  // LOAD PROFILE
   useEffect(() => {
-    if (!user) return;
-    setFormData({
-      name:
-        profile?.full_name ??
-        (user.user_metadata as { full_name?: string })?.full_name ??
-        "",
-      email: user.email ?? "",
-      bio: profile?.bio ?? "",
-      location: profile?.headline ?? "",
+    if (!profile) return;
+
+    setForm({
+      name: profile.full_name || "",
+      bio: profile.bio || "",
     });
-  }, [user, profile]);
+  }, [profile]);
 
+  // LOAD SKILLS
   useEffect(() => {
-    setAvatarImgFailed(false);
-  }, [avatarSrc]);
+    const load = async () => {
+      const [userSkillsRaw, skills] = await Promise.all([
+        getUserSkills(),
+        getAllSkills(),
+      ]);
 
-  useEffect(() => {
-    if (!user?.id) return;
+      const userSkills = userSkillsRaw as any[];
 
-    let cancelled = false;
+      setAllSkills(skills);
 
-    (async () => {
-      try {
-        const [userSkills, allSkills] = await Promise.all([getUserSkills(), getAllSkills()]);
-        if (cancelled) return;
-        const idToName = new Map(allSkills.map((s) => [s.id, s.name]));
-        const teach = userSkills
-          .filter((u) => u.skill_type === "teach")
-          .map((u) => idToName.get(u.skill_id))
-          .filter(Boolean) as string[];
-        const learn = userSkills
-          .filter((u) => u.skill_type === "learn")
-          .map((u) => idToName.get(u.skill_id))
-          .filter(Boolean) as string[];
-        setSkillsToTeach(teach);
-        setSkillsToLearn(learn);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
+      const idToName = new Map(skills.map((s: any) => [s.id, s.name]));
 
-    return () => {
-      cancelled = true;
+      setTeachSkills(
+        userSkills
+          .filter((s: any) => s.skill_type === "teach")
+          .map((s: any) => idToName.get(s.skill_id))
+          .filter(Boolean)
+      );
+
+      setLearnSkills(
+        userSkills
+          .filter((s: any) => s.skill_type === "learn")
+          .map((s: any) => idToName.get(s.skill_id))
+          .filter(Boolean)
+      );
     };
+
+    if (user?.id) load();
   }, [user?.id]);
 
-  const stats = {
-    rating: 4.8,
-    totalSessions: 24,
-    skillsTaught: skillsToTeach.length,
-    skillsLearned: skillsToLearn.length,
+  // SAVE
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+
+      await updateMyProfile({
+        full_name: form.name,
+        bio: form.bio,
+      });
+
+      const nameToId = new Map(allSkills.map((s: any) => [s.name, s.id]));
+
+      const entries = [
+        ...teachSkills.map((name) => ({
+          skill_id: nameToId.get(name),
+          skill_type: "teach" as const,
+        })),
+        ...learnSkills.map((name) => ({
+          skill_id: nameToId.get(name),
+          skill_type: "learn" as const,
+        })),
+      ].filter((e) => e.skill_id);
+
+      await replaceUserSkills(entries);
+
+      setEditing(false);
+    } catch (err) {
+      console.error(err);
+      alert("Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const normalizeSkill = (s: string) => s.trim().replace(/\s+/g, " ");
+  const handleAvatar = async (file: File) => {
+    const path = await uploadAvatar(file);
+    await updateMyProfile({ avatar_url: path });
+    window.location.reload();
+  };
 
-  const addSkill = (type: "teach" | "learn") => {
-    const skill = normalizeSkill(newSkill);
-    if (!skill) return;
+  const addSkill = (type: "teach" | "learn", skill: string) => {
     if (type === "teach") {
-      if (skillsToTeach.some((s) => s.toLowerCase() === skill.toLowerCase())) {
-        setNewSkill("");
-        return;
-      }
-      setSkillsToTeach([...skillsToTeach, skill]);
+      if (!teachSkills.includes(skill)) setTeachSkills([...teachSkills, skill]);
+      setShowTeachPicker(false);
+      setTeachSearch("");
     } else {
-      if (skillsToLearn.some((s) => s.toLowerCase() === skill.toLowerCase())) {
-        setNewSkill("");
-        return;
-      }
-      setSkillsToLearn([...skillsToLearn, skill]);
+      if (!learnSkills.includes(skill)) setLearnSkills([...learnSkills, skill]);
+      setShowLearnPicker(false);
+      setLearnSearch("");
     }
-    setNewSkill("");
   };
 
   const removeSkill = (type: "teach" | "learn", skill: string) => {
     if (type === "teach") {
-      setSkillsToTeach(skillsToTeach.filter((s) => s !== skill));
+      setTeachSkills(teachSkills.filter((s) => s !== skill));
     } else {
-      setSkillsToLearn(skillsToLearn.filter((s) => s !== skill));
+      setLearnSkills(learnSkills.filter((s) => s !== skill));
     }
   };
 
-  const handleSave = async () => {
-    setIsEditing(false);
-    try {
-      await updateMyProfile({
-        full_name: formData.name,
-        bio: formData.bio,
-        headline: formData.location || null,
-      });
-
-      const allSkills = await getAllSkills();
-      const nameToId = new Map(allSkills.map((s) => [s.name.trim().toLowerCase(), s.id]));
-      const entries: UserSkillInput[] = [
-        ...skillsToTeach.map((name) => {
-          const id = nameToId.get(name.trim().toLowerCase());
-          return id ? { skill_id: id, skill_type: "teach" as const } : null;
-        }),
-        ...skillsToLearn.map((name) => {
-          const id = nameToId.get(name.trim().toLowerCase());
-          return id ? { skill_id: id, skill_type: "learn" as const } : null;
-        }),
-      ].filter(Boolean) as UserSkillInput[];
-
-      if (entries.length) await saveUserSkills(entries);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const clearAuthLikeLocalState = () => {
-    const clearKeys = (storage: Storage) => {
-      const keys: string[] = [];
-      for (let i = 0; i < storage.length; i++) {
-        const key = storage.key(i);
-        if (!key) continue;
-        if (/(supabase|auth|session|token|access|refresh)/i.test(key)) keys.push(key);
-      }
-      keys.forEach((k) => storage.removeItem(k));
-    };
-
-    try {
-      clearKeys(window.localStorage);
-    } catch {
-      // ignore
-    }
-    try {
-      clearKeys(window.sessionStorage);
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    setLogoutError(null);
-
-    try {
-      const { error } = await signOut();
-      if (error) throw error;
-      clearAuthLikeLocalState();
-
-      window.location.href = "/login";
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Logout failed. Please try again.";
-      setLogoutError(message);
-      setIsLoggingOut(false);
-    }
-  };
+  const filterSkills = (search: string) =>
+    allSkills.filter((s: any) =>
+      s.name.toLowerCase().includes(search.toLowerCase())
+    );
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">My Profile</h1>
-          <p className="text-muted-foreground">Manage your personal information and skills</p>
+  <div className="max-w-6xl mx-auto px-6 py-8">
+    {/* HEADER */}
+    <div className="flex justify-between mb-8">
+      <h1 className="text-3xl font-bold">My Profile</h1>
+
+      {!editing ? (
+        <Button onClick={() => setEditing(true)}>Edit Profile</Button>
+      ) : (
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            {saving && <Loader2 className="size-4 animate-spin mr-2" />}
+            Save
+          </Button>
         </div>
-        {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Save Changes</Button>
-          </div>
-        )}
-      </div>
+      )}
+    </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Profile Info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info */}
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Avatar */}
-              <div className="flex items-center gap-4">
-                {avatarImgFailed ? (
-                  <div className="size-20 rounded-full bg-muted flex items-center justify-center text-foreground font-bold text-3xl border border-border">
-                    {avatarInitials || "U"}
-                  </div>
-                ) : (
-                  <img
-                    src={avatarSrc}
-                    alt=""
-                    className="size-20 rounded-full object-cover bg-muted border border-border"
-                    onError={() => setAvatarImgFailed(true)}
-                  />
-                )}
-                {isEditing && (
-                  <Button variant="outline" size="sm">
-                    <Camera className="size-4 mr-2" />
-                    Change Photo
-                  </Button>
-                )}
-              </div>
+    <div className="grid lg:grid-cols-3 gap-6">
+      {/* LEFT */}
+      <div className="lg:col-span-2 space-y-6">
+        {/* PROFILE */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Info</CardTitle>
+          </CardHeader>
 
-              <Input
-                label="Full Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={!isEditing}
-              />
-
-              <Input label="Email" type="email" value={formData.email} disabled />
-
-              <Input
-                label="Location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                disabled={!isEditing}
-              />
-
-              <Textarea
-                label="Bio"
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                disabled={!isEditing}
-                rows={4}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Skills I Teach */}
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Skills I Teach</CardTitle>
-              <CardDescription>Share your expertise with others</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isEditing && (
-                <div className="flex gap-2 mb-4">
-                  <SkillAutocomplete
-                    placeholder="Add a skill..."
-                    value={newSkill}
-                    onChange={setNewSkill}
-                    suggestions={SKILL_SUGGESTIONS}
-                    onEnter={() => addSkill("teach")}
-                  />
-                  <Button type="button" onClick={() => addSkill("teach")}>
-                    <Plus className="size-5" />
-                  </Button>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              {avatarUrl ? (
+                <img className="size-20 rounded-full" src={avatarUrl} />
+              ) : (
+                <div className="size-20 bg-primary rounded-full flex items-center justify-center text-white text-2xl">
+                  {initials}
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                {skillsToTeach.map((skill) => (
-                  <span
-                    key={skill}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-primary rounded-lg"
-                  >
-                    {skill}
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => removeSkill("teach", skill)}
-                        className="hover:opacity-80"
-                        aria-label={`Remove ${skill}`}
-                      >
-                        <X className="size-4" />
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Skills I Want to Learn */}
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Skills I Want to Learn</CardTitle>
-              <CardDescription>What you're interested in learning</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isEditing && (
-                <div className="flex gap-2 mb-4">
-                  <SkillAutocomplete
-                    placeholder="Add a skill..."
-                    value={newSkill}
-                    onChange={setNewSkill}
-                    suggestions={SKILL_SUGGESTIONS}
-                    onEnter={() => addSkill("learn")}
-                  />
-                  <Button type="button" onClick={() => addSkill("learn")}>
-                    <Plus className="size-5" />
-                  </Button>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {skillsToLearn.map((skill) => (
-                  <span
-                    key={skill}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-accent rounded-lg"
-                  >
-                    {skill}
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => removeSkill("learn", skill)}
-                        className="hover:opacity-80"
-                        aria-label={`Remove ${skill}`}
-                      >
-                        <X className="size-4" />
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Logout */}
-          <div className="pt-6 border-t border-border">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-destructive text-destructive hover:bg-muted"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-              >
-                <LogOut className="size-5 mr-2" />
-                {isLoggingOut ? "Logging out..." : "Logout"}
-              </Button>
-
-              {logoutError && (
-                <p className="text-sm text-destructive max-w-[260px]" role="alert">
-                  {logoutError}
-                </p>
+              {editing && (
+                <input
+                  type="file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAvatar(file);
+                  }}
+                />
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Stats Sidebar */}
-        <div className="space-y-6">
-          {/* Stats Card */}
-          <Card variant="bordered">
+            <Input
+              label="Name"
+              value={form.name}
+              disabled={!editing}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+            />
+
+            <Textarea
+              label="Bio"
+              value={form.bio}
+              disabled={!editing}
+              onChange={(e) =>
+                setForm({ ...form, bio: e.target.value })
+              }
+            />
+          </CardContent>
+        </Card>
+
+        {/* SKILLS */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* TEACH */}
+          <Card>
             <CardHeader>
-              <CardTitle>Your Stats</CardTitle>
+              <CardTitle>Skills I Teach</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Rating</span>
-                <div className="flex items-center gap-1">
-                  <Star className="size-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-semibold text-foreground">{stats.rating}</span>
-                </div>
+
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {teachSkills.map((s) => (
+                  <span
+                    key={s}
+                    className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1"
+                  >
+                    {s}
+                    {editing && (
+                      <X
+                        className="size-3 cursor-pointer"
+                        onClick={() => removeSkill("teach", s)}
+                      />
+                    )}
+                  </span>
+                ))}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Sessions</span>
-                <span className="font-semibold text-foreground">{stats.totalSessions}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Skills Taught</span>
-                <span className="font-semibold text-foreground">{stats.skillsTaught}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Skills Learned</span>
-                <span className="font-semibold text-foreground">{stats.skillsLearned}</span>
-              </div>
+
+              {editing && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTeachPicker(true)}
+                  >
+                    <Plus className="size-4 mr-1" /> Add Skill
+                  </Button>
+
+                  {showTeachPicker && (
+                    <div className="mt-3">
+                      <input
+                        className="w-full px-3 py-2 rounded bg-muted border"
+                        placeholder="Search..."
+                        value={teachSearch}
+                        onChange={(e) => setTeachSearch(e.target.value)}
+                      />
+
+                      <div className="mt-2 max-h-40 overflow-y-auto flex flex-wrap gap-2">
+                        {filterSkills(teachSearch).map((s: any) => (
+                          <button
+                            key={s.id}
+                            className="px-2 py-1 text-sm bg-muted rounded hover:bg-primary/20"
+                            onClick={() => addSkill("teach", s.name)}
+                          >
+                            {s.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
-          {/* Achievements */}
-          <Card variant="bordered">
+          {/* LEARN */}
+          <Card>
             <CardHeader>
-              <CardTitle>Achievements</CardTitle>
+              <CardTitle>Skills I Learn</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <span className="text-xl">🏆</span>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Top Teacher</p>
-                  <p className="text-xs text-muted-foreground">10+ sessions taught</p>
-                </div>
+
+            <CardContent>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {learnSkills.map((s) => (
+                  <span
+                    key={s}
+                    className="px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-sm flex items-center gap-1"
+                  >
+                    {s}
+                    {editing && (
+                      <X
+                        className="size-3 cursor-pointer"
+                        onClick={() => removeSkill("learn", s)}
+                      />
+                    )}
+                  </span>
+                ))}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <span className="text-xl">🎓</span>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Fast Learner</p>
-                  <p className="text-xs text-muted-foreground">5+ skills learned</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <span className="text-xl">⭐</span>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">5-Star Rated</p>
-                  <p className="text-xs text-muted-foreground">Excellent feedback</p>
-                </div>
-              </div>
+
+              {editing && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLearnPicker(true)}
+                  >
+                    <Plus className="size-4 mr-1" /> Add Skill
+                  </Button>
+
+                  {showLearnPicker && (
+                    <div className="mt-3">
+                      <input
+                        className="w-full px-3 py-2 rounded bg-muted border"
+                        placeholder="Search..."
+                        value={learnSearch}
+                        onChange={(e) => setLearnSearch(e.target.value)}
+                      />
+
+                      <div className="mt-2 max-h-40 overflow-y-auto flex flex-wrap gap-2">
+                        {filterSkills(learnSearch).map((s: any) => (
+                          <button
+                            key={s.id}
+                            className="px-2 py-1 text-sm bg-muted rounded hover:bg-yellow-500/20"
+                            onClick={() => addSkill("learn", s.name)}
+                          >
+                            {s.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
+
+        {/* ✅ LOGOUT NOW CORRECTLY INSIDE LEFT COLUMN */}
+        <div className="pt-0">
+  <button
+    onClick={async () => {
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+    }}
+    className="
+      px-6 py-3
+      text-sm font-medium
+      text-red-500
+      border border-red-500/40
+      rounded-md
+      hover:bg-red-500 hover:text-white
+      transition-all duration-200
+    "
+  >
+    Logout
+  </button>
+</div>
+      </div>
+
+      {/* RIGHT */}
+      <div>
+        <Card className="bg-gradient-to-br from-muted/40 to-muted/10 border border-border">
+          <CardHeader>
+            <CardTitle className="text-lg">Stats</CardTitle>
+          </CardHeader>
+
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground">Sessions</p>
+              <p className="text-xl font-semibold">0</p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-primary/10">
+              <p className="text-xs text-muted-foreground">Teaching</p>
+              <p className="text-xl font-semibold text-primary">
+                {teachSkills.length}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-yellow-500/10">
+              <p className="text-xs text-muted-foreground">Learning</p>
+              <p className="text-xl font-semibold text-yellow-400">
+                {learnSkills.length}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground">Rating</p>
+              <p className="text-xl font-semibold">—</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
+  </div>
+);
 }

@@ -1,47 +1,90 @@
-import { Link, useParams } from "react-router";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/Card";
-import { Star, Calendar, MessageSquare, Award, Clock } from "lucide-react";
+import { Star, Calendar, MessageSquare, Award, Clock, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getProfileById, getUserSkillsById } from "../../services";
+import type { Profile } from "../../types/tables";
+
+type SkillWithName = {
+  id: string;
+  skill_type: string;
+  level: string | null;
+  skills: { name: string } | null;
+};
 
 export default function MatchProfile() {
   const { id } = useParams();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [skills, setSkills] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - would come from API based on id
-  const profile = {
-    name: "Sarah Chen",
-    avatar: "SC",
-    title: "Senior Frontend Developer",
-    bio: "I'm a frontend developer with 5+ years of experience in building modern web applications. I love teaching and helping others grow their skills. My teaching style is hands-on and practical, focusing on real-world projects.",
-    skills: ["React", "TypeScript", "Web Design", "CSS", "JavaScript", "Testing"],
-    rating: 4.9,
-    totalSessions: 47,
-    responseTime: "2 hours",
-    languages: ["English", "Mandarin"],
-    availability: ["Mon-Fri evenings", "Sat mornings"],
-    reviews: [
-      {
-        id: 1,
-        author: "Michael Johnson",
-        rating: 5,
-        text: "Sarah is an excellent teacher! She explained React concepts clearly and patiently answered all my questions.",
-        date: "2 weeks ago",
-      },
-      {
-        id: 2,
-        author: "Emily Davis",
-        rating: 5,
-        text: "Very knowledgeable and professional. Helped me build my first TypeScript project from scratch.",
-        date: "1 month ago",
-      },
-      {
-        id: 3,
-        author: "David Kim",
-        rating: 4,
-        text: "Great session! Sarah provided helpful feedback on my code and shared useful resources.",
-        date: "2 months ago",
-      },
-    ],
-  };
+  useEffect(() => {
+    if (!id) return;
+
+    const loadProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [profileData, skillsData] = await Promise.all([
+          getProfileById(id),
+          getUserSkillsById(id),
+        ]);
+
+        if (!profileData) {
+          setError("Profile not found");
+          return;
+        }
+
+        setProfile(profileData);
+
+        // Extract skill names from the joined data
+        const skillNames = (skillsData as SkillWithName[])
+          .map((s) => s.skills?.name)
+          .filter(Boolean) as string[];
+        // Deduplicate
+        setSkills([...new Set(skillNames)]);
+
+        console.log("[MatchProfile] Profile loaded:", profileData.id);
+      } catch (err) {
+        console.error("[MatchProfile] Failed to load profile:", err);
+        setError("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-8 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-8 text-center">
+        <p className="text-muted-foreground">{error || "Profile not found"}</p>
+        <Link to="/matching" className="mt-4 inline-block">
+          <Button variant="outline">Back to Matches</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const displayName = profile.full_name || profile.username || "User";
+  const initials = displayName
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -49,22 +92,24 @@ export default function MatchProfile() {
       <Card variant="elevated" className="mb-6">
         <div className="flex flex-col md:flex-row gap-6">
           <div className="size-32 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-5xl flex-shrink-0">
-            {profile.avatar}
+            {initials || "U"}
           </div>
 
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground mb-1">{profile.name}</h1>
-            <p className="text-lg text-muted-foreground mb-4">{profile.title}</p>
+            <h1 className="text-3xl font-bold text-foreground mb-1">{displayName}</h1>
+            <p className="text-lg text-muted-foreground mb-4">
+              {profile.headline || "SkillBridge Member"}
+            </p>
 
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex items-center gap-2">
                 <Star className="size-5 fill-yellow-400 text-yellow-400" />
-                <span className="font-semibold">{profile.rating}</span>
-                <span className="text-muted-foreground">({profile.totalSessions} sessions)</span>
+                <span className="font-semibold">—</span>
+                <span className="text-muted-foreground">({skills.length} skills)</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="size-5" />
-                <span>Responds in {profile.responseTime}</span>
+                <span>Member since {new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
               </div>
             </div>
 
@@ -95,7 +140,9 @@ export default function MatchProfile() {
               <CardTitle>About</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-foreground leading-relaxed">{profile.bio}</p>
+              <p className="text-foreground leading-relaxed">
+                {profile.bio || "This user hasn't added a bio yet."}
+              </p>
             </CardContent>
           </Card>
 
@@ -106,14 +153,18 @@ export default function MatchProfile() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-4 py-2 bg-muted text-primary rounded-lg font-medium"
-                  >
-                    {skill}
-                  </span>
-                ))}
+                {skills.length > 0 ? (
+                  skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="px-4 py-2 bg-muted text-primary rounded-lg font-medium"
+                    >
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">No skills listed yet</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -124,31 +175,9 @@ export default function MatchProfile() {
               <CardTitle>Reviews</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {profile.reviews.map((review) => (
-                  <div key={review.id} className="pb-4 border-b border-border last:border-0 last:pb-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-foreground">{review.author}</p>
-                        <p className="text-sm text-muted-foreground">{review.date}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`size-4 ${
-                              i < review.rating
-                                ? "fill-yellow-400 text-yellow-400"
-                                : "text-slate-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-foreground">{review.text}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-muted-foreground text-center py-4">
+                No reviews yet
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -162,28 +191,30 @@ export default function MatchProfile() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {profile.availability.map((time) => (
-                  <div key={time} className="flex items-center gap-2 text-foreground">
-                    <Calendar className="size-4 text-primary" />
-                    <span>{time}</span>
-                  </div>
-                ))}
+                <div className="flex items-center gap-2 text-foreground">
+                  <Calendar className="size-4 text-primary" />
+                  <span>Contact to arrange</span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Languages */}
+          {/* Info */}
           <Card variant="bordered">
             <CardHeader>
-              <CardTitle>Languages</CardTitle>
+              <CardTitle>Info</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {profile.languages.map((lang) => (
-                  <div key={lang} className="text-foreground">
-                    {lang}
-                  </div>
-                ))}
+                {profile.username && (
+                  <div className="text-foreground">@{profile.username}</div>
+                )}
+                <div className="text-muted-foreground text-sm">
+                  Joined {new Date(profile.created_at).toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -196,16 +227,17 @@ export default function MatchProfile() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Total Sessions</span>
-                  <span className="font-semibold text-foreground">{profile.totalSessions}</span>
+                  <span className="text-muted-foreground">Skills Listed</span>
+                  <span className="font-semibold text-foreground">{skills.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Rating</span>
-                  <span className="font-semibold text-foreground">{profile.rating} / 5.0</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Response Time</span>
-                  <span className="font-semibold text-foreground">{profile.responseTime}</span>
+                  <span className="text-muted-foreground">Member Since</span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(profile.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
                 </div>
               </div>
             </CardContent>

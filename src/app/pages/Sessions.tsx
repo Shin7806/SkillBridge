@@ -1,82 +1,84 @@
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
-import { Calendar, Clock, Video, Star, Plus } from "lucide-react";
-import { useState } from "react";
+import { Calendar, Clock, Video, Star, Plus, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getMySessions, updateSessionStatus } from "../../services";
+import { requireAuthUserId } from "../../lib/requireAuth";
+import type { Session, SessionStatus } from "../../types/tables";
 
-const mockSessions = [
-  {
-    id: 1,
-    title: "React Hooks Deep Dive",
-    partner: "Sarah Chen",
-    avatar: "SC",
-    type: "learning",
-    date: "2026-03-16",
-    time: "15:00",
-    duration: "60 min",
-    status: "upcoming",
-    skill: "React Development",
-  },
-  {
-    id: 2,
-    title: "Python for Data Science",
-    partner: "Alex Rivera",
-    avatar: "AR",
-    type: "learning",
-    date: "2026-03-18",
-    time: "10:00",
-    duration: "90 min",
-    status: "upcoming",
-    skill: "Python",
-  },
-  {
-    id: 3,
-    title: "JavaScript Fundamentals",
-    partner: "Emily Davis",
-    avatar: "ED",
-    type: "teaching",
-    date: "2026-03-17",
-    time: "14:00",
-    duration: "60 min",
-    status: "upcoming",
-    skill: "JavaScript",
-  },
-  {
-    id: 4,
-    title: "UI/UX Design Basics",
-    partner: "Maya Patel",
-    avatar: "MP",
-    type: "learning",
-    date: "2026-03-12",
-    time: "14:00",
-    duration: "60 min",
-    status: "completed",
-    skill: "Design",
-    rating: 5,
-  },
-  {
-    id: 5,
-    title: "Web Development Basics",
-    partner: "Michael Johnson",
-    avatar: "MJ",
-    type: "teaching",
-    date: "2026-03-10",
-    time: "16:00",
-    duration: "90 min",
-    status: "completed",
-    skill: "Web Development",
-    rating: 5,
-  },
-];
+// Extended session type that may include swap_requests join data
+type SessionWithRequest = Session & {
+  swap_requests?: {
+    id: string;
+    sender_id: string;
+    receiver_id: string;
+    offered_skill_id: string;
+    requested_skill_id: string;
+    status: string;
+  };
+};
 
 export default function Sessions() {
   const [filter, setFilter] = useState<"all" | "upcoming" | "completed">("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "learning" | "teaching">("all");
+  const [sessions, setSessions] = useState<SessionWithRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const filteredSessions = mockSessions.filter((session) => {
-    const matchesStatus = filter === "all" || session.status === filter;
-    const matchesType = typeFilter === "all" || session.type === typeFilter;
-    return matchesStatus && matchesType;
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        setLoading(true);
+        const userId = await requireAuthUserId();
+        setCurrentUserId(userId);
+        const data = await getMySessions();
+        setSessions(data as SessionWithRequest[]);
+        console.log("[Sessions] Loaded:", data.length);
+      } catch (err) {
+        console.error("[Sessions] Failed to load sessions:", err);
+        setError("Failed to load sessions. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSessions();
+  }, []);
+
+  const handleSessionAction = async (sessionId: string, status: SessionStatus) => {
+    try {
+      setActionLoading(sessionId);
+      await updateSessionStatus({ session_id: sessionId, status });
+      console.log(`[Sessions] Session ${sessionId} → ${status}`);
+
+      // Update local state
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, status } : s))
+      );
+    } catch (err) {
+      console.error("[Sessions] Failed to update session:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getSessionStatusCategory = (session: Session): "upcoming" | "completed" => {
+    return session.status === "completed" ? "completed" : "upcoming";
+  };
+
+  // Check if current user is the receiver (they can accept/decline pending sessions)
+  const isReceiver = (session: SessionWithRequest): boolean => {
+    if (!currentUserId || !session.swap_requests) return false;
+    // The session creator sent it; the other party (receiver in swap_requests context) accepts
+    return session.created_by !== currentUserId;
+  };
+
+  const filteredSessions = sessions.filter((session) => {
+    const category = getSessionStatusCategory(session);
+    const matchesStatus = filter === "all" || category === filter;
+    return matchesStatus;
   });
 
   const formatDate = (dateStr: string) => {
@@ -87,6 +89,34 @@ export default function Sessions() {
       day: "numeric",
     });
   };
+
+  const formatTime = (timeStr: string) => {
+    // timeStr is "HH:MM:SS" from Postgres
+    return timeStr.substring(0, 5);
+  };
+
+  const getStatusBadge = (status: SessionStatus) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
+      case "confirmed":
+        return "bg-green-100 text-green-700";
+      case "completed":
+        return "bg-muted text-primary";
+      case "cancelled":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-muted text-foreground";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -102,6 +132,10 @@ export default function Sessions() {
           </Button>
         </Link>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
@@ -158,92 +192,123 @@ export default function Sessions() {
 
       {/* Sessions Grid */}
       <div className="grid md:grid-cols-2 gap-6">
-        {filteredSessions.map((session) => (
-          <Card key={session.id} variant="elevated">
-            <CardHeader>
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <CardTitle>{session.title}</CardTitle>
-                  <CardDescription className="mt-1">
-                    {session.type === "learning" ? "Learning from" : "Teaching"} {session.partner}
-                  </CardDescription>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    session.type === "learning"
-                      ? "bg-muted text-accent"
-                      : "bg-muted text-primary"
-                  }`}
-                >
-                  {session.type === "learning" ? "Learning" : "Teaching"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  {session.avatar}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="size-4" />
-                    <span>{formatDate(session.date)}</span>
+        {filteredSessions.map((session) => {
+          const category = getSessionStatusCategory(session);
+          const receiverCanAct = isReceiver(session) && session.status === "pending";
+          return (
+            <Card key={session.id} variant="elevated">
+              <CardHeader>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <CardTitle>Session</CardTitle>
+                    <CardDescription className="mt-1">
+                      {session.created_by === currentUserId ? "Created by you" : "Invited to join"}
+                    </CardDescription>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="size-4" />
-                    <span>
-                      {session.time} • {session.duration}
-                    </span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(session.status)}`}
+                  >
+                    {session.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="size-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+                    {session.created_by.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="size-4" />
+                      <span>{formatDate(session.scheduled_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="size-4" />
+                      <span>
+                        {formatTime(session.scheduled_time)} • {session.duration_minutes} min
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            <CardContent>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-foreground rounded-lg text-sm">
-                {session.skill}
-              </div>
-
-              {session.status === "completed" && session.rating && (
-                <div className="flex items-center gap-1 mt-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`size-4 ${
-                        i < session.rating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-slate-300"
-                      }`}
-                    />
-                  ))}
-                  <span className="text-sm text-muted-foreground ml-1">Rated session</span>
+              <CardContent>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-foreground rounded-lg text-sm">
+                  {session.duration_minutes} min session
                 </div>
-              )}
-            </CardContent>
 
-            <CardFooter>
-              {session.status === "upcoming" && (
-                <>
-                  <Button variant="primary" className="flex-1">
-                    <Video className="size-5 mr-2" />
-                    Join Session
-                  </Button>
-                  <Button variant="outline">Reschedule</Button>
-                </>
-              )}
+                {session.notes && (
+                  <p className="text-sm text-muted-foreground mt-3">{session.notes}</p>
+                )}
+              </CardContent>
 
-              {session.status === "completed" && (
-                <>
-                  <Button variant="outline" className="flex-1">
-                    View Details
-                  </Button>
-                  <Link to={`/chat/${session.id}`}>
-                    <Button variant="ghost">Message</Button>
-                  </Link>
-                </>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
+              <CardFooter>
+                {/* Pending session: receiver can accept/decline */}
+                {receiverCanAct && (
+                  <>
+                    <Button
+                      variant="primary"
+                      className="flex-1"
+                      onClick={() => handleSessionAction(session.id, "confirmed")}
+                      disabled={actionLoading === session.id}
+                    >
+                      {actionLoading === session.id ? (
+                        <Loader2 className="size-4 animate-spin mr-2" />
+                      ) : (
+                        <CheckCircle className="size-5 mr-2" />
+                      )}
+                      Accept
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSessionAction(session.id, "cancelled")}
+                      disabled={actionLoading === session.id}
+                    >
+                      <XCircle className="size-5 mr-2" />
+                      Decline
+                    </Button>
+                  </>
+                )}
+
+                {/* Pending session: creator sees "Waiting" */}
+                {session.status === "pending" && !receiverCanAct && (
+                  <div className="flex-1 text-sm text-muted-foreground text-center py-1">
+                    Waiting for confirmation...
+                  </div>
+                )}
+
+                {/* Confirmed session */}
+                {session.status === "confirmed" && (
+                  <>
+                    <Button variant="primary" className="flex-1">
+                      <Video className="size-5 mr-2" />
+                      Join Session
+                    </Button>
+                    <Button variant="outline">Reschedule</Button>
+                  </>
+                )}
+
+                {/* Completed session */}
+                {category === "completed" && session.status === "completed" && (
+                  <>
+                    <Button variant="outline" className="flex-1">
+                      View Details
+                    </Button>
+                    <Link to={`/chat/${session.request_id}`}>
+                      <Button variant="ghost">Message</Button>
+                    </Link>
+                  </>
+                )}
+
+                {/* Cancelled session */}
+                {session.status === "cancelled" && (
+                  <div className="flex-1 text-sm text-muted-foreground text-center py-1">
+                    Session was declined
+                  </div>
+                )}
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
 
       {filteredSessions.length === 0 && (

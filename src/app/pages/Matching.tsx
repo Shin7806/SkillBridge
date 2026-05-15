@@ -1,264 +1,192 @@
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { Button } from "../components/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "../components/Card";
 import { Input } from "../components/Input";
-import { Search, Star, MessageSquare, Calendar } from "lucide-react";
+import { Search, MessageSquare, Calendar, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { FilterDrawer, DEFAULT_MATCHING_FILTERS, MatchingFilterState, countActiveMatchingFilters } from "../components/filters/FilterDrawer";
-import { SKILL_SUGGESTIONS } from "../data/skills";
+import { findMatches } from "../../services";
+import { getAvatarUrl } from "../../utils/avatar";
+import { supabase } from "../../lib/supabase";
+import { requireAuthUserId } from "../../lib/requireAuth";
 
-const mockMatches = [
-  {
-    id: 1,
-    name: "Sarah Chen",
-    avatar: "SC",
-    skills: ["React.js", "TypeScript", "Tailwind CSS"],
-    teachSkills: ["React.js", "TypeScript", "Tailwind CSS"],
-    learnSkills: ["Product Management"],
-    bio: "Frontend developer with 5 years of experience. Love teaching modern web development.",
-    rating: 4.9,
-    sessions: 47,
-    experienceLevel: "advanced",
-    availability: "weekdays",
-    mode: "online",
-    lastActiveDaysAgo: 1,
-  },
-  {
-    id: 2,
-    name: "Alex Rivera",
-    avatar: "AR",
-    skills: ["Python", "Machine Learning", "Data Science"],
-    teachSkills: ["Python", "Machine Learning", "Data Science"],
-    learnSkills: ["UI/UX Design"],
-    bio: "Data scientist passionate about making ML accessible to everyone.",
-    rating: 4.8,
-    sessions: 32,
-    experienceLevel: "intermediate",
-    availability: "flexible",
-    mode: "online",
-    lastActiveDaysAgo: 3,
-  },
-  {
-    id: 3,
-    name: "Maya Patel",
-    avatar: "MP",
-    skills: ["UI/UX Design", "Figma", "Product Design"],
-    teachSkills: ["UI/UX Design", "Figma", "Product Design"],
-    learnSkills: ["React.js"],
-    bio: "Product designer helping people create beautiful user experiences.",
-    rating: 5.0,
-    sessions: 28,
-    experienceLevel: "advanced",
-    availability: "weekends",
-    mode: "offline",
-    lastActiveDaysAgo: 0,
-  },
-  {
-    id: 4,
-    name: "Jordan Lee",
-    avatar: "JL",
-    skills: ["JavaScript", "Node.js", "GraphQL"],
-    teachSkills: ["JavaScript", "Node.js", "GraphQL"],
-    learnSkills: ["Kubernetes"],
-    bio: "Full-stack engineer who enjoys mentoring junior developers.",
-    rating: 4.7,
-    sessions: 55,
-    experienceLevel: "beginner",
-    availability: "weekdays",
-    mode: "online",
-    lastActiveDaysAgo: 7,
-  },
-];
-
-type Match = (typeof mockMatches)[number];
-
-const FILTER_STORAGE_KEY = "skillbridge.matchingFilters.v1";
-
-function normalizeSkill(s: string) {
-  return s.trim().replace(/\s+/g, " ");
-}
-
-function matchesAnySelectedSkill(match: Match, selected: string[], types: ("teach" | "learn")[]) {
-  if (selected.length === 0) return true;
-  const selectedNorm = selected.map((s) => normalizeSkill(s).toLowerCase());
-
-  const haystacks: string[][] = [];
-  if (types.length === 0) {
-    haystacks.push(match.teachSkills, match.learnSkills);
-  } else {
-    if (types.includes("teach")) haystacks.push(match.teachSkills);
-    if (types.includes("learn")) haystacks.push(match.learnSkills);
-  }
-
-  const combined = haystacks.flat().map((s) => s.toLowerCase());
-  return selectedNorm.some((s) => combined.includes(s));
-}
+type DisplayMatch = {
+  id: string;
+  name: string;
+  avatar: string;
+  avatarUrl: string | null;
+  skills: string[];
+  bio: string;
+  teachMatchCount: number;
+  learnMatchCount: number;
+};
 
 export default function Matching() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [filters, setFilters] = useState<MatchingFilterState>(DEFAULT_MATCHING_FILTERS);
+  const [matches, setMatches] = useState<DisplayMatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messageLoading, setMessageLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as MatchingFilterState;
-      setFilters({ ...DEFAULT_MATCHING_FILTERS, ...parsed });
-    } catch {
-      // ignore
-    }
+    const loadMatches = async () => {
+      try {
+        const data = await findMatches({ limit: 20 });
+
+        const mapped = data.map((m: any) => {
+          const name = m.user.name || "User";
+
+          const initials = name
+            .split(" ")
+            .map((w: string) => w[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+
+          return {
+            id: m.user.id,
+            name,
+            avatar: initials,
+            avatarUrl: m.user.avatar_url || null,
+            skills: [...m.teachSkills, ...m.learnSkills],
+            bio: m.user.bio || "No bio available",
+            teachMatchCount: m.teachMatchCount,
+            learnMatchCount: m.learnMatchCount,
+          };
+        });
+
+        setMatches(mapped);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMatches();
   }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-    } catch {
-      // ignore
-    }
-  }, [filters]);
-
-  const activeFilterCount = countActiveMatchingFilters(filters);
-
-  const filteredMatches = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const result = mockMatches.filter((m) => {
-      if (q) {
-        const inName = m.name.toLowerCase().includes(q);
-        const inSkills = m.skills.some((s) => s.toLowerCase().includes(q));
-        const inBio = m.bio.toLowerCase().includes(q);
-        if (!inName && !inSkills && !inBio) return false;
-      }
-
-      if (!matchesAnySelectedSkill(m, filters.skills, filters.skillType)) return false;
-
-      if (filters.experienceLevel && m.experienceLevel !== filters.experienceLevel) return false;
-      if (filters.availability && m.availability !== filters.availability) return false;
-      if (filters.mode && m.mode !== filters.mode) return false;
-
-      if (filters.ratingAtLeast) {
-        const min = Number(filters.ratingAtLeast);
-        if (Number.isFinite(min) && m.rating < min) return false;
-      }
-
-      return true;
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return matches.filter((m) => {
+      if (!q) return true;
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.bio.toLowerCase().includes(q) ||
+        m.skills.some((s) => s.toLowerCase().includes(q))
+      );
     });
+  }, [matches, searchQuery]);
 
-    const sorted = [...result];
-    if (filters.sortBy === "highest_rated") {
-      sorted.sort((a, b) => b.rating - a.rating);
-    } else if (filters.sortBy === "recently_active") {
-      sorted.sort((a, b) => a.lastActiveDaysAgo - b.lastActiveDaysAgo);
-    } else {
-      // best_match: simple heuristic
-      const selected = filters.skills.map((s) => normalizeSkill(s).toLowerCase());
-      const score = (m: Match) => {
-        const combined = [...m.teachSkills, ...m.learnSkills].map((s) => s.toLowerCase());
-        const skillHits = selected.length ? selected.filter((s) => combined.includes(s)).length : 0;
-        return skillHits * 10 + m.rating * 2 + Math.min(m.sessions, 50) / 10 - m.lastActiveDaysAgo / 10;
-      };
-      sorted.sort((a, b) => score(b) - score(a));
+  const handleMessage = async (targetUserId: string) => {
+    try {
+      setMessageLoading(targetUserId);
+      const currentUserId = await requireAuthUserId();
+
+      const { data: existing } = await supabase
+        .from("swap_requests")
+        .select("id")
+        .or(
+          `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`
+        )
+        .maybeSingle();
+
+      if (existing) {
+        window.location.href = `/chat/${existing.id}`;
+        return;
+      }
+
+      const { data: newRequest } = await supabase
+        .from("swap_requests")
+        .insert({
+          sender_id: currentUserId,
+          receiver_id: targetUserId,
+          status: "pending",
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (!newRequest) throw new Error("Request failed");
+
+      window.location.href = `/chat/${newRequest.id}`;
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMessageLoading(null);
     }
-    return sorted;
-  }, [filters, searchQuery]);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <Loader2 className="animate-spin size-8" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Find Your Perfect Match</h1>
-        <p className="text-muted-foreground">
-          Discover skilled teachers ready to help you learn
-        </p>
-      </div>
+      <Input
+        placeholder="Search..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="mb-6"
+      />
 
-      {/* Search and Filters */}
-      <div className="mb-8 flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-          <Input
-            placeholder="Search by skill, name, or expertise..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12"
-          />
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => setDrawerOpen(true)}
-          className={activeFilterCount ? "border-primary text-primary" : undefined}
-        >
-          Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-        </Button>
-      </div>
-
-      {/* Matches Grid */}
-      {filteredMatches.length === 0 ? (
-        <Card variant="bordered" className="text-center py-12">
-          <p className="text-muted-foreground mb-2">No results found</p>
-          <p className="text-sm text-muted-foreground">Try adjusting filters</p>
-        </Card>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {filteredMatches.map((match) => (
-          <Card key={match.id} variant="elevated">
+      <div className="grid md:grid-cols-2 gap-6">
+        {filtered.map((m) => (
+          <Card key={m.id}>
             <CardHeader>
-              <div className="flex items-start gap-4">
-                <div className="size-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl flex-shrink-0">
-                  {match.avatar}
+              <div className="flex gap-4 items-center">
+                <div className="size-14 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                  {m.avatarUrl ? (
+                    <img
+                      src={getAvatarUrl(m.avatarUrl) || ""}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{m.avatar}</span>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <CardTitle>{match.name}</CardTitle>
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className="flex items-center gap-1">
-                      <Star className="size-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium text-foreground">{match.rating}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{match.sessions} sessions</span>
-                  </div>
+
+                <div>
+                  <CardTitle>{m.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {m.teachMatchCount} teach • {m.learnMatchCount} learn
+                  </p>
                 </div>
               </div>
             </CardHeader>
 
             <CardContent>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {match.skills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-3 py-1 bg-muted text-primary rounded-full text-sm"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-              <CardDescription>{match.bio}</CardDescription>
+              <CardDescription>{m.bio}</CardDescription>
             </CardContent>
 
-            <CardFooter>
-              <Link to={`/match/${match.id}`} className="flex-1">
-                <Button variant="primary" className="w-full">
-                  View Profile
-                </Button>
+            <CardFooter className="flex gap-2">
+              <Link to={`/match/${m.id}`} className="flex-1">
+                <Button className="w-full">View Profile</Button>
               </Link>
-              <Button variant="outline" aria-label="Send message">
-                <MessageSquare className="size-5" />
+
+              <Button onClick={() => handleMessage(m.id)}>
+                {messageLoading === m.id ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <MessageSquare />
+                )}
               </Button>
-              <Button variant="outline" aria-label="Schedule session">
-                <Calendar className="size-5" />
+
+              <Button>
+                <Calendar />
               </Button>
             </CardFooter>
           </Card>
-          ))}
-        </div>
-      )}
-
-      <FilterDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        initial={filters}
-        onApply={(next) => setFilters(next)}
-        onReset={() => setFilters(DEFAULT_MATCHING_FILTERS)}
-        skillSuggestions={SKILL_SUGGESTIONS}
-      />
+        ))}
+      </div>
     </div>
   );
 }

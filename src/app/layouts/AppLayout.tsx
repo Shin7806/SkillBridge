@@ -1,18 +1,19 @@
-import { Outlet } from "react-router";
+import { Outlet } from "react-router-dom";
 import { Navigation, TopNav } from "../components/Navigation";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
 import { useOnboarding } from "../../hooks/useOnboarding";
 
 export default function AppLayout() {
-  useAuthGuard();
-  useOnboarding();
-
   return (
-    <div className="flex h-screen bg-background">
+    <div className="min-h-screen bg-background">
+      {/* SIDEBAR */}
       <Navigation />
-      <div className="flex-1 flex flex-col overflow-hidden">
+
+      {/* RIGHT SIDE */}
+      <div className="ml-64 flex flex-col min-h-screen">
         <TopNav />
-        <main className="flex-1 overflow-auto">
+
+        <main className="flex-1 p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

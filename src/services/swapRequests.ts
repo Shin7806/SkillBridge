@@ -3,7 +3,7 @@ import { requireAuthUserId } from "../lib/requireAuth";
 import type { SwapRequest, SwapRequestStatus, UUID } from "../types/tables";
 
 export async function sendSwapRequest(params: {
-  receiver_id: UUID;
+  receiver_id?: UUID | null;
   offered_skill_id: UUID;
   requested_skill_id: UUID;
   message?: string;
@@ -11,9 +11,6 @@ export async function sendSwapRequest(params: {
   const senderId = await requireAuthUserId();
 
   if (params.receiver_id === senderId) throw new Error("Receiver must be different from sender");
-  if (params.offered_skill_id === params.requested_skill_id) {
-    throw new Error("Offered skill and requested skill must be different");
-  }
 
   const message =
     params.message !== undefined ? (params.message.trim() === "" ? null : params.message) : null;
@@ -22,11 +19,11 @@ export async function sendSwapRequest(params: {
     .from("swap_requests")
     .insert({
       sender_id: senderId,
-      receiver_id: params.receiver_id,
+      receiver_id: params.receiver_id || null,
       offered_skill_id: params.offered_skill_id,
       requested_skill_id: params.requested_skill_id,
       message,
-      status: "pending",
+      status: params.receiver_id ? "pending" : "open",
     })
     .select("*")
     .maybeSingle();
@@ -64,4 +61,5 @@ export async function updateRequestStatus(params: {
   if (!updated) throw new Error("Failed to update request status");
   return updated as SwapRequest;
 }
+
 
