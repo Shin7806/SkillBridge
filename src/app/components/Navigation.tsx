@@ -30,7 +30,7 @@ export function Navigation() {
   const location = useLocation();
 
   return (
-    <nav className="w-64 bg-sidebar border-r border-sidebar-border h-screen fixed top-0 left-0 flex flex-col">
+    <nav className="hidden md:flex w-64 bg-sidebar border-r border-sidebar-border h-screen fixed top-0 left-0 flex-col">
       {/* LOGO */}
       <div className="p-6 border-b border-sidebar-border">
         <Link to="/dashboard" className="flex items-center gap-2">
