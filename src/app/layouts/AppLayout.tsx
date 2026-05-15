@@ -10,7 +10,7 @@ export default function AppLayout() {
       <Navigation />
 
       {/* RIGHT SIDE */}
-      <div className="ml-64 flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen md:ml-64">
         <TopNav />
 
         <main className="flex-1 p-6 overflow-y-auto">
