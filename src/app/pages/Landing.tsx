@@ -8,12 +8,19 @@ export default function Landing() {
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="size-10 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">S</span>
-            </div>
-            <span className="font-bold text-xl text-foreground">SkillBridge</span>
+          
+          {/* 🔥 LOGO FIXED HERE */}
+          <Link to="/" className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="SkillBridge"
+              className="w-12 h-12 object-contain"
+            />
+            <span className="font-bold text-2xl tracking-tight">
+  SkillBridge
+</span>
           </Link>
+
           <nav className="flex items-center gap-4">
             <Link to="/login">
               <Button variant="ghost">Log In</Button>
@@ -83,7 +90,11 @@ export default function Landing() {
         <div className="grid md:grid-cols-3 gap-8 text-center">
           <StatCard number="10,000+" label="Active Members" />
           <StatCard number="50,000+" label="Skills Shared" />
-          <StatCard number="4.9" label="Average Rating" icon={<Star className="size-5 fill-yellow-400 text-yellow-400" />} />
+          <StatCard
+            number="4.9"
+            label="Average Rating"
+            icon={<Star className="size-5 fill-yellow-400 text-yellow-400" />}
+          />
         </div>
       </section>
 
@@ -114,19 +125,37 @@ export default function Landing() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="bg-card rounded-xl p-8 border border-border hover:shadow-lg transition-shadow duration-200">
       <div className="size-16 rounded-lg bg-muted text-primary flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h3 className="text-xl font-semibold text-card-foreground mb-3">{title}</h3>
+      <h3 className="text-xl font-semibold text-card-foreground mb-3">
+        {title}
+      </h3>
       <p className="text-muted-foreground leading-relaxed">{description}</p>
     </div>
   );
 }
 
-function StatCard({ number, label, icon }: { number: string; label: string; icon?: React.ReactNode }) {
+function StatCard({
+  number,
+  label,
+  icon,
+}: {
+  number: string;
+  label: string;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="bg-card rounded-xl p-8 border border-border">
       <div className="flex items-center justify-center gap-2 mb-2">

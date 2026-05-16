@@ -51,10 +51,12 @@ export default function Login() {
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 mb-4">
-          <div className="size-12 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">S</span>
-          </div>
-          <span className="font-bold text-2xl text-foreground">SkillBridge</span>
+          <div className="inline-flex items-center gap-2 mb-4">
+  <img src="/logo.png" alt="SkillBridge" className="w-16 h-16 object-contain" />
+  <span className="font-bold text-4xl tracking-tight">
+  SkillBridge
+</span>
+</div>
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back</h1>
         <p className="text-muted-foreground">Log in to continue learning</p>

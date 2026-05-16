@@ -94,10 +94,16 @@ export function Navigation() {
           className="flex items-center gap-2"
           onClick={close}
         >
-          <div className="size-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold">S</span>
+          <div className="inline-flex items-center gap-2 mb-0">
+  <img
+    src="/logo.png"
+    alt="SkillBridge"
+    className="w-10 h-10 object-contain"
+  />
           </div>
-          <span className="font-semibold text-foreground">SkillBridge</span>
+          <span className="font-bold text-2xl tracking-tight">
+  SkillBridge
+</span>
         </Link>
 
         {/* Close button — visible only on mobile */}
