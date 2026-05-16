@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Input, Textarea } from "../components/Input";
 import { Card, CardHeader, CardTitle, CardDescription } from "../components/Card";
@@ -12,8 +12,10 @@ import { getUserSkills } from "../../services/userSkills";
 import { sendSwapRequest } from "../../services/swapRequests";
 
 export default function SkillRequest() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    skill: "",
+    requestedSkill: "",
+    offeredSkill: "",
     description: "",
     level: "beginner",
     duration: "30",
@@ -50,46 +52,21 @@ export default function SkillRequest() {
         return;
       }
 
-      // 1. Resolve requested skill ID
-      const allSkills = await getAllSkills();
-      const selectedSkill = allSkills.find(
-        (s) => s.name.toLowerCase() === formData.skill.trim().toLowerCase()
-      );
-
-      if (!selectedSkill) {
-        console.error("Skill not found:", formData.skill);
-        alert("Please select a valid skill from suggestions");
+      if (!formData.requestedSkill.trim() || !formData.offeredSkill.trim()) {
+        setError("Both skills must be provided");
         return;
       }
 
-      console.log(selectedSkill); // Debug requirement
-
-      // 2. GET A RECEIVER (TEMP FIX)
-      const { data: users } = await supabase
-        .from("profiles")
-        .select("id")
-        .neq("id", currentUser.id);
-
-      if (!users || users.length === 0) {
-        console.error("No users available");
-        return;
+      if (formData.requestedSkill.trim().toLowerCase() === formData.offeredSkill.trim().toLowerCase()) {
+        throw new Error("You cannot request and offer the same skill");
       }
-
-      const receiver = users[0]; // TEMP
-
-      console.log("Creating request with:", {
-        sender: currentUser.id,
-        receiver: receiver.id,
-        skill: selectedSkill.id,
-      });
 
       const { data, error } = await supabase
         .from("swap_requests")
         .insert({
-          sender_id: currentUser.id,
-          receiver_id: receiver.id,
-          offered_skill_id: selectedSkill.id, // Using selectedSkill for both as per instructions
-          requested_skill_id: selectedSkill.id,
+          requester_id: currentUser.id,
+          skill_learn: formData.requestedSkill.trim(),
+          skill_teach: formData.offeredSkill.trim(),
           message: formData.description.trim() || null,
           status: "pending",
         })
@@ -98,15 +75,11 @@ export default function SkillRequest() {
 
       if (error) {
         console.error("REQUEST ERROR:", error);
-        alert(error.message);
+        setError(error.message);
         return;
       }
 
-      console.log("SUCCESS:", data);
-      alert("Request created successfully");
-
-      // 4. Redirect to requests page so they see it
-      window.location.href = "/requests";
+      navigate("/requests");
     } catch (err) {
       console.error("Unexpected error:", err);
       setError(err instanceof Error ? err.message : "Failed to create request.");
@@ -128,13 +101,20 @@ export default function SkillRequest() {
 
       <Card variant="elevated">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Skill */}
-          <div>
+          <div className="grid md:grid-cols-2 gap-6">
             <SkillAutocomplete
               label="What skill do you want to learn?"
               placeholder="e.g., Python, Guitar, Spanish"
-              value={formData.skill}
-              onChange={(skill) => setFormData({ ...formData, skill })}
+              value={formData.requestedSkill}
+              onChange={(skill) => setFormData({ ...formData, requestedSkill: skill })}
+              suggestions={SKILL_SUGGESTIONS}
+              required
+            />
+            <SkillAutocomplete
+              label="What skill can you teach?"
+              placeholder="e.g., JavaScript, Piano, French"
+              value={formData.offeredSkill}
+              onChange={(skill) => setFormData({ ...formData, offeredSkill: skill })}
               suggestions={SKILL_SUGGESTIONS}
               required
             />

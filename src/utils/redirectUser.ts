@@ -1,9 +1,5 @@
 import { supabase } from "../lib/supabase";
 
-/**
- * After auth, send user to /setup (first-time) or /dashboard (returning).
- * Relies on profiles.onboarding_completed (see supabase/add_onboarding_completed.sql).
- */
 export async function redirectUser() {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
@@ -25,7 +21,15 @@ export async function redirectUser() {
     return;
   }
 
-  if (profile?.onboarding_completed !== true) {
+  // 🔥 CRITICAL FIX
+  if (!profile) {
+    console.log("Profile not loaded → go dashboard (safe)");
+    window.location.replace("/dashboard");
+    return;
+  }
+
+  // 🔥 ONLY redirect if explicitly false
+  if (profile.onboarding_completed === false) {
     window.location.replace("/setup");
   } else {
     window.location.replace("/dashboard");

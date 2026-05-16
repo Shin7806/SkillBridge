@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../components/Button";
 import { Input, Textarea } from "../components/Input";
@@ -9,7 +9,7 @@ import {
   CardDescription,
   CardContent,
 } from "../components/Card";
-import { Camera, Loader2, Plus, X } from "lucide-react";
+import { Camera, Loader2, Plus, Upload, X } from "lucide-react";
 
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useProfile } from "../../hooks/useProfile";
@@ -21,9 +21,17 @@ import { uploadAvatar } from "../../services/avatar";
 import { getUserSkills, replaceUserSkills } from "../../services/userSkills";
 import { getAllSkills } from "../../services/skills";
 
+import { useParams } from "react-router-dom";
+
 export default function Profile() {
+  const { id } = useParams<{ id: string }>();
   const user = useCurrentUser();
-  const profile = useProfile(user?.id);
+  
+  // If id is provided in the URL, use it. Otherwise, use the current user's id.
+  const targetUserId = id || user?.id;
+  const isMyProfile = !id || id === user?.id;
+  
+  const { profile, refetch } = useProfile(targetUserId);
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,8 +52,17 @@ export default function Profile() {
   const [showTeachPicker, setShowTeachPicker] = useState(false);
   const [showLearnPicker, setShowLearnPicker] = useState(false);
 
+  // ── AVATAR STATES ──
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   const displayName = getDisplayName(user, profile);
-  const avatarUrl = getAvatarUrl(profile?.avatar_url);
+  const savedAvatarUrl = getAvatarUrl(profile?.avatar_url);
+
+  // Show preview if a file is selected, otherwise show the saved avatar
+  const displayAvatarUrl = avatarPreview ?? savedAvatarUrl;
 
   const initials = displayName
     .split(" ")
@@ -93,13 +110,62 @@ export default function Profile() {
       );
     };
 
-    if (user?.id) load();
-  }, [user?.id]);
+    if (targetUserId) load();
+  }, [targetUserId]);
+
+  // Clean up object URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
+  // ── AVATAR HANDLERS ──
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Revoke old preview URL
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) return;
+
+    try {
+      setAvatarUploading(true);
+      const path = await uploadAvatar(avatarFile);
+      await updateMyProfile({ avatar_url: path });
+
+      // Refresh profile data from DB (no page reload!)
+      await refetch();
+
+      // Clear the file selection
+      setAvatarFile(null);
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+      alert("Failed to upload avatar. Please try again.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   // SAVE
   const handleSave = async () => {
     try {
       setSaving(true);
+
+      // If there's a pending avatar, upload it first
+      if (avatarFile) {
+        await handleAvatarUpload();
+      }
 
       await updateMyProfile({
         full_name: form.name,
@@ -121,6 +187,9 @@ export default function Profile() {
 
       await replaceUserSkills(entries);
 
+      // Refresh profile to get latest data
+      await refetch();
+
       setEditing(false);
     } catch (err) {
       console.error(err);
@@ -128,12 +197,6 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleAvatar = async (file: File) => {
-    const path = await uploadAvatar(file);
-    await updateMyProfile({ avatar_url: path });
-    window.location.reload();
   };
 
   const addSkill = (type: "teach" | "learn", skill: string) => {
@@ -162,258 +225,272 @@ export default function Profile() {
     );
 
   return (
-  <div className="max-w-6xl mx-auto px-6 py-8">
-    {/* HEADER */}
-    <div className="flex justify-between mb-8">
-      <h1 className="text-3xl font-bold">My Profile</h1>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-8">
+        <h1 className="text-3xl font-bold">{isMyProfile ? "My Profile" : `${displayName}'s Profile`}</h1>
 
-      {!editing ? (
-        <Button onClick={() => setEditing(true)}>Edit Profile</Button>
-      ) : (
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setEditing(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            {saving && <Loader2 className="size-4 animate-spin mr-2" />}
-            Save
-          </Button>
+        {isMyProfile && (
+          !editing ? (
+            <Button onClick={() => setEditing(true)}>Edit Profile</Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditing(false);
+                  if (avatarPreview) {
+                    URL.revokeObjectURL(avatarPreview);
+                    setAvatarPreview(null);
+                    setAvatarFile(null);
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="size-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="flex flex-col gap-6">
+        <div className="grid lg:grid-cols-3 gap-6">
+
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* PROFILE CARD (IMPROVED) */}
+          <Card className="bg-gradient-to-br from-muted/30 to-muted/10">
+            <CardHeader>
+              <CardTitle>Profile Info</CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              <div className="flex flex-col sm:flex-row gap-6 items-start">
+
+                {/* Avatar */}
+                <div className="relative group">
+                  <div className="size-24 rounded-full overflow-hidden ring-2 ring-border group-hover:ring-primary transition">
+                    {displayAvatarUrl ? (
+                      <img
+                        src={displayAvatarUrl}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <div className="size-full bg-primary flex items-center justify-center text-white text-xl font-bold">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+
+                  {editing && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full"
+                    >
+                      <Camera className="text-white size-5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Upload */}
+                {editing && (
+                  <div className="space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      hidden
+                      onChange={handleFileSelect}
+                    />
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="size-4 mr-2" />
+                      Upload Avatar
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground">
+                      {avatarFile ? avatarFile.name : "No file chosen"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Input
+                label="Name"
+                value={form.name}
+                disabled={!editing}
+                onChange={(e) =>
+                  setForm({ ...form, name: e.target.value })
+                }
+              />
+
+              <Textarea
+                label="Bio"
+                value={form.bio}
+                disabled={!editing}
+                onChange={(e) =>
+                  setForm({ ...form, bio: e.target.value })
+                }
+              />
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="space-y-6">
+
+          {/* SKILLS (MOVED RIGHT) */}
+          <div className="space-y-6">
+
+            {/* TEACH */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills I Teach</CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {teachSkills.map((s) => (
+                    <span
+                      key={s}
+                      className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1"
+                    >
+                      {s}
+                      {editing && (
+                        <X
+                          className="size-3 cursor-pointer"
+                          onClick={() => removeSkill("teach", s)}
+                        />
+                      )}
+                    </span>
+                  ))}
+                </div>
+
+                {editing && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTeachPicker(true)}
+                    >
+                      <Plus className="size-4 mr-1" /> Add Skill
+                    </Button>
+
+                    {showTeachPicker && (
+                      <div className="mt-3">
+                        <input
+                          className="w-full px-3 py-2 rounded bg-muted border"
+                          placeholder="Search..."
+                          value={teachSearch}
+                          onChange={(e) => setTeachSearch(e.target.value)}
+                        />
+
+                        <div className="mt-2 max-h-40 overflow-y-auto flex flex-wrap gap-2">
+                          {filterSkills(teachSearch).map((s: any) => (
+                            <button
+                              key={s.id}
+                              className="px-2 py-1 text-sm bg-muted rounded hover:bg-primary/20"
+                              onClick={() => addSkill("teach", s.name)}
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* LEARN */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills I Learn</CardTitle>
+              </CardHeader>
+
+              <CardContent>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {learnSkills.map((s) => (
+                    <span
+                      key={s}
+                      className="px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-sm flex items-center gap-1"
+                    >
+                      {s}
+                      {editing && (
+                        <X
+                          className="size-3 cursor-pointer"
+                          onClick={() => removeSkill("learn", s)}
+                        />
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* STATS BELOW SKILLS */}
+          <Card className="bg-gradient-to-br from-muted/40 to-muted/10">
+            <CardHeader>
+              <CardTitle>Stats</CardTitle>
+            </CardHeader>
+
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="p-3 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground">Sessions</p>
+                <p className="text-lg font-semibold">0</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-primary/10">
+                <p className="text-xs text-muted-foreground">Teaching</p>
+                <p className="text-lg font-semibold text-primary">
+                  {teachSkills.length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-yellow-500/10">
+                <p className="text-xs text-muted-foreground">Learning</p>
+                <p className="text-lg font-semibold text-yellow-400">
+                  {learnSkills.length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground">Rating</p>
+                <p className="text-lg font-semibold">—</p>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+      </div>
+
+      {/* LOGOUT OUTSIDE GRID */}
+      {isMyProfile && (
+        <div className="mt-10 flex justify-center sm:justify-start">
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.href = "/login";
+            }}
+            className="text-red-500 border border-red-500 px-4 py-2 rounded hover:bg-red-500 hover:text-white transition"
+          >
+            Logout
+          </button>
         </div>
       )}
     </div>
-
-    <div className="grid lg:grid-cols-3 gap-6">
-      {/* LEFT */}
-      <div className="lg:col-span-2 space-y-6">
-        {/* PROFILE */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Info</CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              {avatarUrl ? (
-                <img className="size-20 rounded-full" src={avatarUrl} />
-              ) : (
-                <div className="size-20 bg-primary rounded-full flex items-center justify-center text-white text-2xl">
-                  {initials}
-                </div>
-              )}
-
-              {editing && (
-                <input
-                  type="file"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleAvatar(file);
-                  }}
-                />
-              )}
-            </div>
-
-            <Input
-              label="Name"
-              value={form.name}
-              disabled={!editing}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
-            />
-
-            <Textarea
-              label="Bio"
-              value={form.bio}
-              disabled={!editing}
-              onChange={(e) =>
-                setForm({ ...form, bio: e.target.value })
-              }
-            />
-          </CardContent>
-        </Card>
-
-        {/* SKILLS */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* TEACH */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills I Teach</CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {teachSkills.map((s) => (
-                  <span
-                    key={s}
-                    className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1"
-                  >
-                    {s}
-                    {editing && (
-                      <X
-                        className="size-3 cursor-pointer"
-                        onClick={() => removeSkill("teach", s)}
-                      />
-                    )}
-                  </span>
-                ))}
-              </div>
-
-              {editing && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTeachPicker(true)}
-                  >
-                    <Plus className="size-4 mr-1" /> Add Skill
-                  </Button>
-
-                  {showTeachPicker && (
-                    <div className="mt-3">
-                      <input
-                        className="w-full px-3 py-2 rounded bg-muted border"
-                        placeholder="Search..."
-                        value={teachSearch}
-                        onChange={(e) => setTeachSearch(e.target.value)}
-                      />
-
-                      <div className="mt-2 max-h-40 overflow-y-auto flex flex-wrap gap-2">
-                        {filterSkills(teachSearch).map((s: any) => (
-                          <button
-                            key={s.id}
-                            className="px-2 py-1 text-sm bg-muted rounded hover:bg-primary/20"
-                            onClick={() => addSkill("teach", s.name)}
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* LEARN */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills I Learn</CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {learnSkills.map((s) => (
-                  <span
-                    key={s}
-                    className="px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-sm flex items-center gap-1"
-                  >
-                    {s}
-                    {editing && (
-                      <X
-                        className="size-3 cursor-pointer"
-                        onClick={() => removeSkill("learn", s)}
-                      />
-                    )}
-                  </span>
-                ))}
-              </div>
-
-              {editing && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowLearnPicker(true)}
-                  >
-                    <Plus className="size-4 mr-1" /> Add Skill
-                  </Button>
-
-                  {showLearnPicker && (
-                    <div className="mt-3">
-                      <input
-                        className="w-full px-3 py-2 rounded bg-muted border"
-                        placeholder="Search..."
-                        value={learnSearch}
-                        onChange={(e) => setLearnSearch(e.target.value)}
-                      />
-
-                      <div className="mt-2 max-h-40 overflow-y-auto flex flex-wrap gap-2">
-                        {filterSkills(learnSearch).map((s: any) => (
-                          <button
-                            key={s.id}
-                            className="px-2 py-1 text-sm bg-muted rounded hover:bg-yellow-500/20"
-                            onClick={() => addSkill("learn", s.name)}
-                          >
-                            {s.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ✅ LOGOUT NOW CORRECTLY INSIDE LEFT COLUMN */}
-        <div className="pt-0">
-  <button
-    onClick={async () => {
-      await supabase.auth.signOut();
-      window.location.href = "/login";
-    }}
-    className="
-      px-6 py-3
-      text-sm font-medium
-      text-red-500
-      border border-red-500/40
-      rounded-md
-      hover:bg-red-500 hover:text-white
-      transition-all duration-200
-    "
-  >
-    Logout
-  </button>
-</div>
-      </div>
-
-      {/* RIGHT */}
-      <div>
-        <Card className="bg-gradient-to-br from-muted/40 to-muted/10 border border-border">
-          <CardHeader>
-            <CardTitle className="text-lg">Stats</CardTitle>
-          </CardHeader>
-
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div className="p-3 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground">Sessions</p>
-              <p className="text-xl font-semibold">0</p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-primary/10">
-              <p className="text-xs text-muted-foreground">Teaching</p>
-              <p className="text-xl font-semibold text-primary">
-                {teachSkills.length}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-yellow-500/10">
-              <p className="text-xs text-muted-foreground">Learning</p>
-              <p className="text-xl font-semibold text-yellow-400">
-                {learnSkills.length}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground">Rating</p>
-              <p className="text-xl font-semibold">—</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  </div>
-);
+  );
 }

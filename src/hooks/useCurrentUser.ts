@@ -1,23 +1,12 @@
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import { useAuth } from "../app/contexts/AuthContext";
 
+/**
+ * Returns the current Supabase user from the shared AuthContext.
+ *
+ * This is a convenience wrapper around useAuth().user for pages
+ * that only need the user object (Dashboard, Profile, Settings).
+ */
 export function useCurrentUser() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
+  const { user } = useAuth();
   return user;
 }

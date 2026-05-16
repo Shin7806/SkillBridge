@@ -1,11 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
-import { Clock, CheckCircle, XCircle, Plus, Loader2 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Plus, Loader2, User, MessageSquare, Edit2, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getMyRequests, updateRequestStatus, createSession } from "../../services";
+import { supabase } from "../../lib/supabase";
+import { getMyRequests, updateRequestStatus, createSession, getOrCreateConversation } from "../../services";
 import { requireAuthUserId } from "../../lib/requireAuth";
 import type { SwapRequest } from "../../types/tables";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export default function Requests() {
   const [filter, setFilter] = useState<"all" | "open" | "pending" | "accepted" | "rejected">("all");
@@ -14,6 +16,8 @@ export default function Requests() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [startingChat, setStartingChat] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadRequests = async () => {
@@ -56,6 +60,23 @@ export default function Requests() {
       );
     } catch (err) {
       console.error("[Requests] Failed to decline request:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      setActionLoading(id);
+      const { error } = await supabase.from("swap_requests").delete().eq("id", id);
+      if (error) {
+        console.error(error);
+        return;
+      }
+      // UI update instantly
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error("[Requests] Failed to delete request:", err);
     } finally {
       setActionLoading(null);
     }
@@ -172,93 +193,88 @@ export default function Requests() {
 
       {/* Requests Grid */}
       <div className="grid gap-6">
-        {filteredRequests.map((request) => {
-          const isSender = request.sender_id === currentUserId;
-          const displayId = isSender ? (request.receiver_id || "Open Request") : request.sender_id;
-          const initial = displayId.substring(0, 2).toUpperCase();
-          const displayName = isSender 
-            ? (request.receiver_id ? `Request to ${request.receiver_id.substring(0, 8)}...` : "Open Request (Looking for teachers)")
-            : `Request from ${request.sender_id.substring(0, 8)}...`;
-
+        {filteredRequests.map((request: any) => {
+          const isSender = request.requester_id === currentUserId;
+          const otherProfile = isSender ? request.receiver : request.requester;
+          
+          const displayProfile = otherProfile || { full_name: "Unknown User", id: "open" };
+          const avatarUrl = getAvatarUrl(displayProfile.avatar_url);
+          const initial = displayProfile.full_name?.substring(0, 2).toUpperCase() || "U";
+          
           return (
-            <Card key={request.id} variant="elevated">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="size-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold flex-shrink-0">
-                      {initial}
-                    </div>
-                    <div>
-                      <CardTitle>{displayName}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {request.message || "Swap request"}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(request.status)}
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${getStatusColor(
-                        request.status
-                      )}`}
+            <div key={request.id} className="rounded-xl border border-border hover:bg-muted/40 transition p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card">
+              {/* LEFT */}
+              <div className="flex items-center gap-4 flex-shrink-0 md:w-1/3">
+                <div className="size-12 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    initial
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{displayProfile.full_name || "Unknown"}</h3>
+                  <p className="text-xs text-muted-foreground">{formatDate(request.created_at)}</p>
+                </div>
+              </div>
+
+              {/* CENTER */}
+              <div className="flex-1 min-w-0 md:text-center text-sm">
+                <p><span className="text-muted-foreground">Wants to learn:</span> <span className="font-medium text-foreground">{request.skill_learn || request.requested_skill?.name || "Unknown"}</span></p>
+                <p><span className="text-muted-foreground">Can teach:</span> <span className="font-medium text-foreground">{request.skill_teach || request.offered_skill?.name || "Unknown"}</span></p>
+              </div>
+
+              {/* RIGHT */}
+              <div className="flex items-center gap-2 flex-shrink-0 md:w-1/3 justify-end">
+                {isSender ? (
+                  <>
+                    <Button variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/requests/${request.id}`); }}>
+                      <Edit2 className="size-4 mr-2" /> Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(request.id); }}
+                      disabled={actionLoading === request.id}
                     >
-                      {request.status === "rejected" ? "declined" : request.status}
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <div className="flex gap-4 text-sm text-muted-foreground">
-                  <span>
-                    <strong>Requested:</strong> {formatDate(request.created_at)}
-                  </span>
-                </div>
-              </CardContent>
-
-              {request.status === "pending" && !isSender && (
-                <CardFooter>
-                  <Button
-                    variant="primary"
-                    onClick={() => handleAccept(request)}
-                    disabled={actionLoading === request.id}
-                  >
-                    {actionLoading === request.id ? (
-                      <Loader2 className="size-4 animate-spin mr-2" />
-                    ) : null}
-                    Accept Request
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleDecline(request)}
-                    disabled={actionLoading === request.id}
-                  >
-                    Decline
-                  </Button>
-                  <Link to={`/chat/${request.id}`}>
-                    <Button variant="ghost">Send Message</Button>
-                  </Link>
-                </CardFooter>
-              )}
-
-              {request.status === "accepted" && (
-                <CardFooter>
-                  <Link to={`/schedule/${request.id}`}>
-                    <Button variant="primary">Schedule Session</Button>
-                  </Link>
-                  <Link to={`/chat/${request.id}`}>
-                    <Button variant="outline">Message</Button>
-                  </Link>
-                </CardFooter>
-              )}
-            </Card>
+                      {actionLoading === request.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4 mr-2" />}
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="primary"
+                      className="w-full md:w-auto"
+                      disabled={startingChat === request.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          setStartingChat(request.id);
+                          const conversation = await getOrCreateConversation(request.requester_id);
+                          if (!conversation?.id) throw new Error("Conversation not created");
+                          navigate(`/chat/${conversation.id}`);
+                        } catch (err) {
+                          console.error(err);
+                        } finally {
+                          setStartingChat(null);
+                        }
+                      }}
+                    >
+                      {startingChat === request.id ? <Loader2 className="size-4 animate-spin mr-2" /> : <MessageSquare className="size-4 mr-2" />}
+                      Message
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
 
       {filteredRequests.length === 0 && (
         <Card variant="bordered" className="text-center py-12">
-          <p className="text-muted-foreground mb-4">No {filter !== "all" && filter} requests found</p>
+          <p className="text-muted-foreground mb-4">No requests found. Create one to start learning!</p>
           <Link to="/matching">
             <Button variant="outline">Find Learning Opportunities</Button>
           </Link>

@@ -1,8 +1,8 @@
 import { supabase } from "../lib/supabase";
 
-type SignUpResult =
-  | { needsEmailConfirmation: true }
-  | { session: NonNullable<Awaited<ReturnType<typeof supabase.auth.signUp>>["data"]["session"]> };
+export type SignUpResult =
+  | { needsEmailConfirmation: true; session: null }
+  | { needsEmailConfirmation: false; session: NonNullable<Awaited<ReturnType<typeof supabase.auth.signUp>>["data"]["session"]> };
 
 export async function signUp(params: { email: string; password: string }): Promise<SignUpResult> {
   const { data, error } = await supabase.auth.signUp({
@@ -13,10 +13,10 @@ export async function signUp(params: { email: string; password: string }): Promi
   if (error) throw error;
 
   if (!data.session) {
-    return { needsEmailConfirmation: true as const };
+    return { needsEmailConfirmation: true, session: null };
   }
 
-  return { session: data.session };
+  return { needsEmailConfirmation: false, session: data.session };
 }
 
 export async function signIn(params: { email: string; password: string }) {
@@ -44,4 +44,3 @@ export async function signInWithGoogle() {
   if (error) throw error;
   return data;
 }
-

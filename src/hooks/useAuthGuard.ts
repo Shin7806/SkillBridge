@@ -3,21 +3,12 @@ import { supabase } from "../lib/supabase";
 
 /**
  * For protected (AppLayout) routes: redirect to /login if there is no session.
+ *
+ * NOTE: AppLayout now handles auth checks via AuthContext. This hook is kept
+ * for backward compatibility and as a safety-net for sign-out events.
  */
 export function useAuthGuard() {
   useEffect(() => {
-    let cancelled = false;
-
-    const ensureSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (!data.session) {
-        window.location.replace("/login");
-      }
-    };
-
-    void ensureSession();
-
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         window.location.replace("/login");
@@ -25,7 +16,6 @@ export function useAuthGuard() {
     });
 
     return () => {
-      cancelled = true;
       sub.subscription.unsubscribe();
     };
   }, []);

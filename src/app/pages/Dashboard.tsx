@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
 import { Calendar, MessageSquare, Star, TrendingUp, Users, BookOpen, Loader2 } from "lucide-react";
@@ -6,20 +6,24 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useProfile } from "../../hooks/useProfile";
 import { getDisplayName } from "../../utils/avatar";
 import { useState, useEffect } from "react";
-import { getMySessions, getMyRequests, getUserSkills } from "../../services";
-import type { Session, SwapRequest, UserSkill } from "../../types/tables";
+import { supabase } from "../../lib/supabase";
+import { getMyRequests, getUserSkills } from "../../services";
+import type { SwapRequest, UserSkill } from "../../types/tables";
 import { requireAuthUserId } from "../../lib/requireAuth";
 
 export default function Dashboard() {
   const user = useCurrentUser();
-  const profile = useProfile(user?.id);
+  const { profile } = useProfile(user?.id);
   const welcomeName = getDisplayName(user, profile);
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [requests, setRequests] = useState<SwapRequest[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
   const [userSkills, setUserSkills] = useState<UserSkill[]>([]);
+  const [totalChats, setTotalChats] = useState(0);
+  const [activeRequestsCount, setActiveRequestsCount] = useState(0);
+  const [connections, setConnections] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -28,20 +32,24 @@ export default function Dashboard() {
         const userId = await requireAuthUserId();
         setCurrentUserId(userId);
 
-        const [sessionsData, requestsData, skillsData] = await Promise.all([
-          getMySessions(),
+        const [requestsData, skillsData, { data: convData }, { count: reqCount }] = await Promise.all([
           getMyRequests(),
           getUserSkills(),
+          supabase.from("conversations").select("*").or(`user_1.eq.${userId},user_2.eq.${userId}`),
+          supabase.from("swap_requests").select("*", { count: "exact", head: true }).eq("requester_id", userId)
         ]);
 
-        setSessions(sessionsData);
+        const uniqueUsers = new Set();
+        convData?.forEach(c => {
+          const other = c.user_1 === userId ? c.user_2 : c.user_1;
+          uniqueUsers.add(other);
+        });
+
         setRequests(requestsData);
         setUserSkills(skillsData);
-        console.log("[Dashboard] Data loaded:", {
-          sessions: sessionsData.length,
-          requests: requestsData.length,
-          skills: skillsData.length,
-        });
+        setConnections(uniqueUsers.size);
+        setTotalChats(uniqueUsers.size);
+        setActiveRequestsCount(reqCount || 0);
       } catch (err) {
         console.error("[Dashboard] Failed to load data:", err);
       } finally {
@@ -49,46 +57,45 @@ export default function Dashboard() {
       }
     };
     loadDashboardData();
+
+    // Setup realtime subscription for swap_requests
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    requireAuthUserId().then(userId => {
+      channel = supabase
+        .channel("dashboard-requests")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "swap_requests", filter: `requester_id=eq.${userId}` },
+          () => {
+            loadDashboardData();
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Compute stats from real data
-  const activeSessions = sessions.filter(
-    (s) => s.status === "pending" || s.status === "confirmed"
-  ).length;
-  const totalSessions = sessions.length;
   const skillsLearning = userSkills.filter((s) => s.skill_type === "learn").length;
 
-  // Connections: unique other-party user IDs from swap requests
-  const connectionIds = new Set<string>();
-  if (currentUserId) {
-    requests.forEach((r) => {
-      if (r.sender_id === currentUserId) connectionIds.add(r.receiver_id);
-      else connectionIds.add(r.sender_id);
-    });
-  }
-  const connections = connectionIds.size;
-
   const stats = [
-    { label: "Active Sessions", value: String(activeSessions), icon: Calendar, color: "text-primary bg-muted" },
-    { label: "Total Sessions", value: String(totalSessions), icon: BookOpen, color: "text-accent bg-muted" },
+    { label: "Active Requests", value: String(activeRequestsCount), icon: Calendar, color: "text-primary bg-muted" },
+    { label: "Total Courses (Chats)", value: String(totalChats), icon: BookOpen, color: "text-accent bg-muted" },
     { label: "Skills Learning", value: String(skillsLearning), icon: TrendingUp, color: "text-green-600 bg-green-100" },
     { label: "Connections", value: String(connections), icon: Users, color: "text-blue-600 bg-blue-100" },
   ];
 
-  // Upcoming sessions: non-completed, latest 3
-  const upcomingSessions = sessions
-    .filter((s) => s.status === "pending" || s.status === "confirmed")
-    .slice(0, 3);
+  const currentRequests = requests
+    .filter((r) => r.requester_id === currentUserId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 1);
 
-  const formatSessionDate = (session: Session) => {
-    const date = new Date(session.scheduled_date);
-    const day = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const time = session.scheduled_time.substring(0, 5);
-    return `${day}, ${time}`;
-  };
+
 
   // Recent activity: derived from recent requests + sessions
-  type ActivityItem = { id: string; type: string; text: string; time: string };
+  type ActivityItem = { id: string; type: string; text: string; time: string; rawDate: string };
   const recentActivity: ActivityItem[] = [];
 
   // Add recent requests as activity
@@ -100,6 +107,7 @@ export default function Dashboard() {
         type: "session",
         text: "Swap request accepted",
         time: timeAgo,
+        rawDate: r.created_at,
       });
     } else if (r.status === "pending") {
       recentActivity.push({
@@ -107,22 +115,15 @@ export default function Dashboard() {
         type: "message",
         text: "New swap request pending",
         time: timeAgo,
+        rawDate: r.created_at,
       });
     }
   });
 
-  // Add recent sessions as activity
-  sessions.slice(0, 2).forEach((s) => {
-    recentActivity.push({
-      id: `ses-${s.id}`,
-      type: "session",
-      text: s.status === "completed" ? "Completed a session" : "Session scheduled",
-      time: getTimeAgo(s.created_at),
-    });
-  });
-
   // Sort by most recent and limit to 5
-  const sortedActivity = recentActivity.slice(0, 5);
+  const sortedActivity = recentActivity
+    .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
+    .slice(0, 5);
 
   if (loading) {
     return (
@@ -135,9 +136,12 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back, {welcomeName}!</h1>
-        <p className="text-muted-foreground">Here's what's happening with your learning journey</p>
+      <div className="mb-10 relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent blur-3xl -z-10 -m-8" />
+        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70 mb-3 tracking-tight">
+          Welcome back, {welcomeName}!
+        </h1>
+        <p className="text-lg text-muted-foreground font-medium">Here's what's happening with your learning journey</p>
       </div>
 
       {/* Stats Grid */}
@@ -145,14 +149,14 @@ export default function Dashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label} variant="bordered">
-              <CardContent className="flex items-center gap-4">
-                <div className={`size-12 rounded-lg ${stat.color} flex items-center justify-center`}>
-                  <Icon className="size-6" />
+            <Card key={stat.label} variant="bordered" className="hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 border border-border/50 shadow-md hover:shadow-xl bg-card overflow-hidden group">
+              <CardContent className="flex items-center gap-5 relative z-10 p-6">
+                <div className={`size-14 rounded-2xl ${stat.color} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300`}>
+                  <Icon className="size-7" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-3xl font-black text-foreground tracking-tight">{stat.value}</p>
+                  <p className="text-sm font-medium text-muted-foreground mt-0.5">{stat.label}</p>
                 </div>
               </CardContent>
             </Card>
@@ -161,53 +165,51 @@ export default function Dashboard() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Upcoming Sessions */}
+        {/* Current Requests */}
         <div className="lg:col-span-2">
           <Card variant="elevated">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Upcoming Sessions</CardTitle>
-                <Link to="/sessions">
-                  <Button variant="ghost" size="sm">
-                    View all
-                  </Button>
-                </Link>
+                <CardTitle>Requests</CardTitle>
               </div>
-              <CardDescription>Your scheduled learning sessions</CardDescription>
+              <CardDescription>Your active skill requests</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {upcomingSessions.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No upcoming sessions. Accept a request to get started!
-                </p>
+              {currentRequests.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-muted/20 rounded-xl border border-dashed border-border">
+                  <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                    <Calendar className="size-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">No requests yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Check back later or start exploring.</p>
+                </div>
               ) : (
-                upcomingSessions.map((session) => (
+                currentRequests.map((request: any) => (
                   <div
-                    key={session.id}
-                    className="flex items-center gap-4 p-4 bg-background rounded-lg hover:bg-muted transition-colors"
+                    key={request.id}
+                    className="p-5 bg-gradient-to-br from-background to-muted/30 border border-border/60 rounded-xl hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
+                    onClick={() => navigate("/requests")}
                   >
-                    <div className="size-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold flex-shrink-0">
-                      {session.created_by.substring(0, 2).toUpperCase()}
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">Skill Swap Request</h4>
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary tracking-wide">
+                        PENDING
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-foreground">Session</h4>
-                      <p className="text-sm text-muted-foreground">Status: {session.status}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-foreground">{formatSessionDate(session)}</p>
-                      <p className="text-sm text-muted-foreground">{session.duration_minutes} min</p>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="p-3 bg-card border border-border/50 rounded-lg shadow-sm">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Learning</p>
+                        <p className="font-medium text-foreground truncate">{request.skill_learn || request.requested_skill?.name || "..."}</p>
+                      </div>
+                      <div className="p-3 bg-card border border-border/50 rounded-lg shadow-sm">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Teaching</p>
+                        <p className="font-medium text-foreground truncate">{request.skill_teach || request.offered_skill?.name || "..."}</p>
+                      </div>
                     </div>
                   </div>
                 ))
               )}
             </CardContent>
-            <CardFooter>
-              <Link to="/request" className="w-full">
-                <Button variant="outline" className="w-full">
-                  Request New Session
-                </Button>
-              </Link>
-            </CardFooter>
           </Card>
         </div>
 

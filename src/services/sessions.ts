@@ -46,14 +46,14 @@ export async function getMySessions(): Promise<Session[]> {
       *,
       swap_requests!inner (
         id,
-        sender_id,
+        requester_id,
         receiver_id,
         offered_skill_id,
         requested_skill_id,
         status
       )
     `)
-    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`, {
+    .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`, {
       foreignTable: "swap_requests",
     })
     .order("created_at", { ascending: false });

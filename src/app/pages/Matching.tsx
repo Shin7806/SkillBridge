@@ -11,7 +11,7 @@ import {
 import { Input } from "../components/Input";
 import { Search, MessageSquare, Calendar, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { findMatches } from "../../services";
+import { findMatches, getOrCreateConversation } from "../../services";
 import { getAvatarUrl } from "../../utils/avatar";
 import { supabase } from "../../lib/supabase";
 import { requireAuthUserId } from "../../lib/requireAuth";
@@ -86,34 +86,8 @@ export default function Matching() {
   const handleMessage = async (targetUserId: string) => {
     try {
       setMessageLoading(targetUserId);
-      const currentUserId = await requireAuthUserId();
-
-      const { data: existing } = await supabase
-        .from("swap_requests")
-        .select("id")
-        .or(
-          `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`
-        )
-        .maybeSingle();
-
-      if (existing) {
-        window.location.href = `/chat/${existing.id}`;
-        return;
-      }
-
-      const { data: newRequest } = await supabase
-        .from("swap_requests")
-        .insert({
-          sender_id: currentUserId,
-          receiver_id: targetUserId,
-          status: "pending",
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (!newRequest) throw new Error("Request failed");
-
-      window.location.href = `/chat/${newRequest.id}`;
+      const convo = await getOrCreateConversation(targetUserId);
+      window.location.href = `/chat/${convo.id}`;
     } catch (err) {
       console.error(err);
     } finally {
@@ -142,46 +116,39 @@ export default function Matching() {
         {filtered.map((m) => (
           <Card key={m.id}>
             <CardHeader>
-              <div className="flex gap-4 items-center">
-                <div className="size-14 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+              <div className="flex gap-4 items-center w-full">
+                <div className="size-16 rounded-full overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
                   {m.avatarUrl ? (
                     <img
                       src={getAvatarUrl(m.avatarUrl) || ""}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span>{m.avatar}</span>
+                    <span className="text-xl font-bold text-muted-foreground">{m.avatar}</span>
                   )}
                 </div>
 
-                <div>
-                  <CardTitle>{m.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {m.teachMatchCount} teach • {m.learnMatchCount} learn
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg truncate">{m.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    <span className="font-medium text-foreground">{m.teachMatchCount}</span> teach • <span className="font-medium text-foreground">{m.learnMatchCount}</span> learn
                   </p>
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{m.bio}</p>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent>
-              <CardDescription>{m.bio}</CardDescription>
-            </CardContent>
-
-            <CardFooter className="flex gap-2">
-              <Link to={`/match/${m.id}`} className="flex-1">
-                <Button className="w-full">View Profile</Button>
+            <CardFooter className="flex justify-end gap-2 pt-0">
+              <Link to={`/profile/${m.id}`}>
+                <Button variant="outline">View Profile</Button>
               </Link>
 
               <Button onClick={() => handleMessage(m.id)}>
                 {messageLoading === m.id ? (
-                  <Loader2 className="animate-spin" />
+                  <Loader2 className="animate-spin size-4" />
                 ) : (
-                  <MessageSquare />
+                  <MessageSquare className="size-4" />
                 )}
-              </Button>
-
-              <Button>
-                <Calendar />
               </Button>
             </CardFooter>
           </Card>

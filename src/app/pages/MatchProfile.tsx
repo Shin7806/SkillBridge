@@ -1,9 +1,10 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/Card";
-import { Star, Calendar, MessageSquare, Award, Clock, Loader2 } from "lucide-react";
+import { Star, Calendar, MessageSquare, Clock, Loader2, User } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getProfileById, getUserSkillsById } from "../../services";
+import { getAvatarUrl } from "../../utils/avatar";
+import { getProfileById, getUserSkillsById, getOrCreateConversation } from "../../services";
 import type { Profile } from "../../types/tables";
 
 type SkillWithName = {
@@ -16,9 +17,12 @@ type SkillWithName = {
 export default function MatchProfile() {
   const { id } = useParams();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [skills, setSkills] = useState<string[]>([]);
+  const [skills, setSkills] = useState<{ teach: string[], learn: string[] }>({ teach: [], learn: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [startingChat, setStartingChat] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
@@ -41,11 +45,20 @@ export default function MatchProfile() {
         setProfile(profileData);
 
         // Extract skill names from the joined data
-        const skillNames = (skillsData as SkillWithName[])
+        const teach = (skillsData as SkillWithName[])
+          .filter(s => s.skill_type === "teach")
           .map((s) => s.skills?.name)
           .filter(Boolean) as string[];
-        // Deduplicate
-        setSkills([...new Set(skillNames)]);
+
+        const learn = (skillsData as SkillWithName[])
+          .filter(s => s.skill_type === "learn")
+          .map((s) => s.skills?.name)
+          .filter(Boolean) as string[];
+
+        setSkills({
+          teach: [...new Set(teach)],
+          learn: [...new Set(learn)]
+        });
 
         console.log("[MatchProfile] Profile loaded:", profileData.id);
       } catch (err) {
@@ -86,13 +99,24 @@ export default function MatchProfile() {
     .toUpperCase()
     .slice(0, 2);
 
+  const avatarUrl = getAvatarUrl(profile.avatar_url);
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       {/* Header */}
       <Card variant="elevated" className="mb-6">
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="size-32 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-5xl flex-shrink-0">
-            {initials || "U"}
+          <div className="size-32 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-5xl flex-shrink-0 ring-4 ring-primary/20">
+            {avatarUrl && !imgError ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="w-full h-full rounded-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              initials || "U"
+            )}
           </div>
 
           <div className="flex-1">
@@ -105,7 +129,7 @@ export default function MatchProfile() {
               <div className="flex items-center gap-2">
                 <Star className="size-5 fill-yellow-400 text-yellow-400" />
                 <span className="font-semibold">—</span>
-                <span className="text-muted-foreground">({skills.length} skills)</span>
+                <span className="text-muted-foreground">({skills.teach.length + skills.learn.length} skills)</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="size-5" />
@@ -114,18 +138,29 @@ export default function MatchProfile() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link to={`/schedule/${id}`}>
-                <Button variant="primary" size="lg">
-                  <Calendar className="size-5 mr-2" />
-                  Schedule Session
-                </Button>
-              </Link>
-              <Link to="/chat">
-                <Button variant="outline" size="lg">
-                  <MessageSquare className="size-5 mr-2" />
-                  Send Message
-                </Button>
-              </Link>
+
+              <Button 
+                variant="outline" 
+                size="lg"
+                disabled={startingChat}
+                onClick={async () => {
+                  try {
+                    setStartingChat(true);
+                    const conversation = await getOrCreateConversation(id);
+                    if (!conversation?.id) throw new Error("Conversation not created");
+                    console.log("OTHER USER:", id);
+                    console.log("CONVERSATION RESULT:", conversation);
+                    navigate(`/chat/${conversation.id}`);
+                  } catch (err) {
+                    console.error("Failed to start chat", err);
+                  } finally {
+                    setStartingChat(false);
+                  }
+                }}
+              >
+                {startingChat ? <Loader2 className="size-5 mr-2 animate-spin" /> : <MessageSquare className="size-5 mr-2" />}
+                Send Message
+              </Button>
             </div>
           </div>
         </div>
@@ -152,19 +187,50 @@ export default function MatchProfile() {
               <CardTitle>Skills</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {skills.length > 0 ? (
-                  skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="px-4 py-2 bg-muted text-primary rounded-lg font-medium"
-                    >
-                      {skill}
-                    </span>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">No skills listed yet</p>
-                )}
+              <div className="space-y-6">
+                {/* Teaching Section */}
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                    What they can teach
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {skills.teach.length > 0 ? (
+                      skills.teach.map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-4 py-2 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20 rounded-lg font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No teaching skills listed</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Learning Section */}
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-primary/60"></span>
+                    What they want to learn
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {skills.learn.length > 0 ? (
+                      skills.learn.map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-4 py-2 bg-muted text-foreground border border-border rounded-lg font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No learning goals listed</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -228,7 +294,7 @@ export default function MatchProfile() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Skills Listed</span>
-                  <span className="font-semibold text-foreground">{skills.length}</span>
+                  <span className="font-semibold text-foreground">{skills.teach.length + skills.learn.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Member Since</span>

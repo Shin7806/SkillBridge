@@ -1,46 +1,54 @@
-import { useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
+import { useAuth } from "../app/contexts/AuthContext";
 
-/**
- * App shell: send users to /setup only until profiles.onboarding_completed is true.
- * Returning users who finished onboarding stay on app routes (e.g. /dashboard).
- */
-export function useOnboarding() {
+interface UseOnboardingResult {
+  onboardingCompleted: boolean | null; // null = still loading
+  loading: boolean;
+}
+
+export function useOnboarding(): UseOnboardingResult {
+  const { user } = useAuth();
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
+    if (!user) {
+      setOnboardingCompleted(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
-    const checkOnboarding = async (userId: string) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("onboarding_completed")
-        .eq("id", userId)
-        .maybeSingle();
+    const fetchOnboarding = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("onboarding_completed")
+          .eq("id", user.id)
+          .maybeSingle();
 
-      if (cancelled) return;
-      if (profile?.onboarding_completed !== true) {
-        window.location.replace("/setup");
+        if (cancelled) return;
+
+        if (error) {
+          console.error("useOnboarding fetch error:", error);
+          // Fail safe: treat as completed so we don't trap users in /setup
+          setOnboardingCompleted(true);
+          return;
+        }
+
+        // null profile or null field → treat as completed (safe default)
+        setOnboardingCompleted(data?.onboarding_completed ?? true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
-    const run = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-      if (!user) return;
+    fetchOnboarding();
+    return () => { cancelled = true; };
+  }, [user?.id]); // re-run only if user id changes
 
-      await checkOnboarding(user.id);
-    };
-
-    void run();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const uid = session?.user?.id;
-      if (!uid) return;
-      void checkOnboarding(uid);
-    });
-
-    return () => {
-      cancelled = true;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  return { onboardingCompleted, loading };
 }

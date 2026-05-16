@@ -1,18 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
 
-const supabase = createClient(
-  'https://kzqyampibniceydwmzby.supabase.co',
-  'sb_publishable_KUo-BFLLK3tDfvxF1BxE_g_mtLO7EhV'
-);
+dotenv.config();
 
-async function testQuery() {
-  const { data, error } = await supabase
-    .from("user_skills")
-    .select(`*`)
-    .limit(1);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
+async function checkSchema() {
+  const { data, error } = await supabase.from('swap_requests').select('*, sender:profiles!sender_id(*)').limit(1);
   console.log("Error:", error);
-  console.log("Data:", JSON.stringify(data, null, 2));
 }
 
-testQuery();
+checkSchema();

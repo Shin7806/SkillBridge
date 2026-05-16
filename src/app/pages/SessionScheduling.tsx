@@ -96,8 +96,8 @@ export default function SessionScheduling() {
       // 2. Create the Swap Request
       const request = await sendSwapRequest({
         receiver_id: id,
-        offered_skill_id: offeredSkillId,
-        requested_skill_id: requestedSkillId,
+        skill_teach: mySkills.find(s => s.skill_id === offeredSkillId)?.skills?.name || "Unknown",
+        skill_learn: theirSkills.find(s => s.skill_id === requestedSkillId)?.skills?.name || "Unknown",
         message: notes.trim() || null
       });
       console.log("[SessionScheduling] Swap request created:", request.id);
@@ -113,8 +113,8 @@ export default function SessionScheduling() {
       });
       console.log("[SessionScheduling] Session created:", session.id);
 
-      // Navigate to sessions page using React Router
-      navigate("/sessions");
+      // Navigate to dashboard since sessions page is removed
+      navigate("/dashboard");
     } catch (err) {
       console.error("[SessionScheduling] Failed to book session:", err);
       const msg = err instanceof Error ? err.message : "Failed to book session. Please try again.";

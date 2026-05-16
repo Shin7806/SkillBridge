@@ -1,9 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
 import { Calendar, Clock, Video, Star, Plus, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getMySessions, updateSessionStatus } from "../../services";
+import { getMySessions, updateSessionStatus, getOrCreateConversation } from "../../services";
 import { requireAuthUserId } from "../../lib/requireAuth";
 import type { Session, SessionStatus } from "../../types/tables";
 
@@ -11,7 +11,7 @@ import type { Session, SessionStatus } from "../../types/tables";
 type SessionWithRequest = Session & {
   swap_requests?: {
     id: string;
-    sender_id: string;
+    requester_id: string;
     receiver_id: string;
     offered_skill_id: string;
     requested_skill_id: string;
@@ -27,6 +27,8 @@ export default function Sessions() {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [startingChat, setStartingChat] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadSessions = async () => {
@@ -195,6 +197,10 @@ export default function Sessions() {
         {filteredSessions.map((session) => {
           const category = getSessionStatusCategory(session);
           const receiverCanAct = isReceiver(session) && session.status === "pending";
+          const otherUserId = session.swap_requests 
+            ? (session.swap_requests.requester_id === currentUserId ? session.swap_requests.receiver_id : session.swap_requests.requester_id)
+            : session.created_by; // fallback
+
           return (
             <Card key={session.id} variant="elevated">
               <CardHeader>
@@ -293,9 +299,26 @@ export default function Sessions() {
                     <Button variant="outline" className="flex-1">
                       View Details
                     </Button>
-                    <Link to={`/chat/${session.request_id}`}>
-                      <Button variant="ghost">Message</Button>
-                    </Link>
+                    <Button 
+                      variant="ghost"
+                      disabled={startingChat === session.id}
+                      onClick={async () => {
+                        if (!otherUserId) return;
+                        try {
+                          setStartingChat(session.id);
+                          const conversation = await getOrCreateConversation(otherUserId);
+                          if (!conversation?.id) throw new Error("Conversation not created");
+                          navigate(`/chat/${conversation.id}`);
+                        } catch (err) {
+                          console.error(err);
+                        } finally {
+                          setStartingChat(null);
+                        }
+                      }}
+                    >
+                      {startingChat === session.id ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+                      Message
+                    </Button>
                   </>
                 )}
 

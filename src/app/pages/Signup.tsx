@@ -18,6 +18,7 @@ export default function Signup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
+  const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
 
   const password = formData.password;
   const confirmPassword = formData.confirmPassword;
@@ -30,7 +31,8 @@ export default function Signup() {
   const isPasswordValid =
     hasMinLength && hasUppercase && hasLowercase && hasNumber;
 
-  const isConfirmValid = confirmPassword.length > 0 && confirmPassword === password;
+  const isConfirmValid =
+    confirmPassword.length > 0 && confirmPassword === password;
 
   const passwordRules = [
     { label: "At least 8 characters", valid: hasMinLength },
@@ -42,7 +44,6 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent submission if validation fails
     if (!isPasswordValid || !isConfirmValid) return;
 
     setIsLoading(true);
@@ -54,16 +55,15 @@ export default function Signup() {
         password: formData.password,
       });
 
-      console.log("Signup response:", result);
-
       if (result.needsEmailConfirmation) {
-        alert("Check your email before logging in.");
+        setShowConfirmationMessage(true);
         return;
       }
 
       window.location.href = "/setup";
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Signup failed. Please try again.";
+      const message =
+        err instanceof Error ? err.message : "Signup failed. Please try again.";
       console.error("Signup error:", err);
       setSignupError(message);
     } finally {
@@ -78,6 +78,39 @@ export default function Signup() {
       console.error("Google auth error:", error);
     }
   };
+
+  if (showConfirmationMessage) {
+    return (
+      <div className="w-full max-w-md text-center">
+        <div className="inline-flex items-center gap-2 mb-8">
+          <div className="size-12 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-white font-bold text-2xl">S</span>
+          </div>
+          <span className="font-bold text-2xl text-foreground">SkillBridge</span>
+        </div>
+
+        <Card variant="elevated">
+          <div className="py-4 space-y-4">
+            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <span className="text-3xl">📧</span>
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Check your email</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              We sent a confirmation link to{" "}
+              <strong className="text-foreground">{formData.email}</strong>.
+              Click it to activate your account and get started.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Already confirmed?{" "}
+              <Link to="/login" className="text-primary font-medium hover:underline">
+                Log in
+              </Link>
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md">
@@ -108,7 +141,9 @@ export default function Signup() {
             type="email"
             placeholder="you@example.com"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             required
           />
 
@@ -117,8 +152,14 @@ export default function Signup() {
             type={showPassword ? "text" : "password"}
             placeholder="Create a strong password"
             value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            error={formData.password.length > 0 && !isPasswordValid ? "Password doesn't meet requirements." : undefined}
+            onChange={(e) =>
+              setFormData({ ...formData, password: e.target.value })
+            }
+            error={
+              formData.password.length > 0 && !isPasswordValid
+                ? "Password doesn't meet requirements."
+                : undefined
+            }
             required
             rightElement={
               <button
@@ -127,10 +168,15 @@ export default function Signup() {
                 className="text-muted-foreground hover:text-primary transition-colors"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
               </button>
             }
           />
+
           {formData.password.length > 0 && (
             <div className="space-y-1">
               {passwordRules.map((rule) => (
@@ -152,7 +198,9 @@ export default function Signup() {
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm your password"
             value={formData.confirmPassword}
-            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, confirmPassword: e.target.value })
+            }
             error={
               formData.confirmPassword.length > 0 && !isConfirmValid
                 ? "Passwords do not match."
@@ -164,9 +212,17 @@ export default function Signup() {
                 type="button"
                 onClick={() => setShowConfirmPassword((v) => !v)}
                 className="text-muted-foreground hover:text-primary transition-colors"
-                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
               >
-                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                {showConfirmPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
               </button>
             }
           />
@@ -178,7 +234,7 @@ export default function Signup() {
             size="lg"
             disabled={!isPasswordValid || !isConfirmValid || isLoading}
           >
-            Create Account
+            {isLoading ? "Creating account…" : "Create Account"}
           </Button>
 
           {signupError ? (
@@ -186,33 +242,45 @@ export default function Signup() {
               {signupError}
             </p>
           ) : null}
-
         </form>
 
         <div className="mt-4">
-  <Button
-    type="button"
-    variant="outline"
-    className="w-full flex items-center justify-center gap-3"
-    size="lg"
-    onClick={handleGoogleLogin}
-  >
-    {/* Google Icon */}
-    <svg width="20" height="20" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5 44.5 36.3 44.5 25c0-1.5-.2-3-.9-4.5z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 18.9 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4.5 24 4.5 16 4.5 9.2 8.7 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 45.5c5.1 0 9.8-2 13.2-5.2l-6.1-5.2C29 36.9 26.6 38 24 38c-5.2 0-9.6-3.3-11.2-8l-6.6 5.1C9.1 41.2 16 45.5 24 45.5z"/>
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3-3.4 5.4-6.3 6.9l6.1 5.2C39.9 36.9 44.5 31.5 44.5 25c0-1.5-.2-3-.9-4.5z"/>
-    </svg>
-
-    <span>Continue with Google</span>
-  </Button>
-</div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-3"
+            size="lg"
+            onClick={handleGoogleLogin}
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48">
+              <path
+                fill="#FFC107"
+                d="M43.6 20.5H42V20H24v8h11.3C33.6 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5 44.5 36.3 44.5 25c0-1.5-.2-3-.9-4.5z"
+              />
+              <path
+                fill="#FF3D00"
+                d="M6.3 14.7l6.6 4.8C14.7 16 18.9 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.5 29.2 4.5 24 4.5 16 4.5 9.2 8.7 6.3 14.7z"
+              />
+              <path
+                fill="#4CAF50"
+                d="M24 45.5c5.1 0 9.8-2 13.2-5.2l-6.1-5.2C29 36.9 26.6 38 24 38c-5.2 0-9.6-3.3-11.2-8l-6.6 5.1C9.1 41.2 16 45.5 24 45.5z"
+              />
+              <path
+                fill="#1976D2"
+                d="M43.6 20.5H42V20H24v8h11.3c-1.1 3-3.4 5.4-6.3 6.9l6.1 5.2C39.9 36.9 44.5 31.5 44.5 25c0-1.5-.2-3-.9-4.5z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </Button>
+        </div>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:text-primary font-medium">
+            <Link
+              to="/login"
+              className="text-primary hover:text-primary font-medium"
+            >
               Log in
             </Link>
           </p>
@@ -220,7 +288,8 @@ export default function Signup() {
       </Card>
 
       <p className="text-center text-xs text-muted-foreground mt-6">
-        By creating an account, you agree to our Terms of Service and Privacy Policy.
+        By creating an account, you agree to our Terms of Service and Privacy
+        Policy.
       </p>
     </div>
   );

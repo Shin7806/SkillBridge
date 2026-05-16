@@ -38,21 +38,30 @@ export interface UserSkill {
 
 export interface SwapRequest {
   id: UUID;
-  sender_id: UUID;
+  requester_id: UUID;
   receiver_id: UUID | null;
-  offered_skill_id: UUID;
-  requested_skill_id: UUID;
+  skill_learn: string;
+  skill_teach: string;
   message: string | null;
   status: SwapRequestStatus;
   created_at: string;
   updated_at: string;
 }
 
+export interface Conversation {
+  id: UUID;
+  user_1: UUID;
+  user_2: UUID;
+  created_at: string;
+}
+
 export interface Message {
   id: UUID;
-  request_id: UUID;
-  sender_id: UUID;
+  conversation_id: UUID;
+  requester_id: UUID;
+  receiver_id: UUID;
   content: string;
+  is_read: boolean;
   created_at: string;
 }
 

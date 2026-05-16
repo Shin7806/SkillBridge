@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider } from "./contexts/AuthContext";
 
 import Landing from "./pages/Landing";
 import AuthCallback from "./pages/AuthCallback";
@@ -14,7 +15,7 @@ import SessionScheduling from "./pages/SessionScheduling";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Requests from "./pages/Requests";
-import Sessions from "./pages/Sessions";
+import RequestDetail from "./pages/RequestDetail";
 import Settings from "./pages/Settings";
 
 import AppLayout from "./layouts/AppLayout";
@@ -23,36 +24,39 @@ import AuthLayout from "./layouts/AuthLayout";
 export default function App() {
   return (
     <ThemeProvider>
-      <Routes>
-        {/* PUBLIC */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
+      <AuthProvider>
+        <Routes>
+          {/* PUBLIC */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* AUTH */}
-        <Route element={<AuthLayout />}>
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup" element={<SkillProfileSetup />} />
-        </Route>
+          {/* AUTH */}
+          <Route element={<AuthLayout />}>
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<SkillProfileSetup />} />
+          </Route>
 
-        {/* APP */}
-        <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/matching" element={<Matching />} />
-          <Route path="/match/:id" element={<MatchProfile />} />
-          <Route path="/request" element={<SkillRequest />} />
+          {/* APP */}
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/matching" element={<Matching />} />
+            <Route path="/match/:id" element={<MatchProfile />} />
+            <Route path="/request" element={<SkillRequest />} />
 
-          {/* ✅ FIXED CHAT */}
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/chat/:id" element={<Chat />} />
+            {/* ✅ FIXED CHAT */}
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/chat/:id" element={<Chat />} />
 
-          <Route path="/schedule/:id" element={<SessionScheduling />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/requests" element={<Requests />} />
-          <Route path="/sessions" element={<Sessions />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
+            <Route path="/schedule/:id" element={<SessionScheduling />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:id" element={<Profile />} />
+            <Route path="/requests" element={<Requests />} />
+            <Route path="/requests/:id" element={<RequestDetail />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
