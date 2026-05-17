@@ -40,6 +40,16 @@ export async function getUserSkills(): Promise<UserSkill[]> {
   return (data as UserSkill[]) ?? [];
 }
 
+export async function getUserSkillsById(userId: string): Promise<UserSkill[]> {
+  const { data, error } = await supabase
+    .from("user_skills")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return (data as UserSkill[]) ?? [];
+}
+
 /**
  * Full sync: delete all existing user_skills, then insert the new set.
  * This ensures removed skills are actually deleted from the DB.
@@ -47,7 +57,6 @@ export async function getUserSkills(): Promise<UserSkill[]> {
 export async function replaceUserSkills(entries: UserSkillInput[]): Promise<UserSkill[]> {
   const userId = await requireAuthUserId();
 
-  // Step 1: Delete all existing skills for this user
   const { error: deleteError } = await supabase
     .from("user_skills")
     .delete()
@@ -55,7 +64,6 @@ export async function replaceUserSkills(entries: UserSkillInput[]): Promise<User
 
   if (deleteError) throw deleteError;
 
-  // Step 2: Insert new skills
   if (!entries.length) return [];
 
   const rows = entries.map((e) => ({
@@ -73,4 +81,3 @@ export async function replaceUserSkills(entries: UserSkillInput[]): Promise<User
   if (insertError) throw insertError;
   return (data as UserSkill[]) ?? [];
 }
-

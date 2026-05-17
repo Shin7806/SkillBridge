@@ -13,7 +13,6 @@ export async function getMyProfile(): Promise<Profile | null> {
     .maybeSingle();
 
   if (error) throw error;
-
   return (data as Profile | null) ?? null;
 }
 
@@ -24,6 +23,7 @@ export async function updateMyProfile(values: {
   bio?: string | null;
   avatar_url?: string | null;
   headline?: string | null;
+  onboarding_completed?: boolean | null;
 }): Promise<Profile> {
   const userId: UUID = await requireAuthUserId();
 
@@ -38,11 +38,10 @@ export async function updateMyProfile(values: {
     .single();
 
   if (error) throw error;
-
   return data as Profile;
 }
 
-// GET PROFILE BY ID (used by MatchProfile page)
+// GET PROFILE BY ID
 export async function getProfileById(userId: UUID): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
@@ -54,7 +53,7 @@ export async function getProfileById(userId: UUID): Promise<Profile | null> {
   return (data as Profile | null) ?? null;
 }
 
-// GET USER SKILLS BY ID (used by MatchProfile page)
+// GET USER SKILLS BY ID (with joined skill names)
 export async function getUserSkillsById(userId: UUID) {
   const { data, error } = await supabase
     .from("user_skills")
