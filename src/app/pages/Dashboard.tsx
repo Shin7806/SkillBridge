@@ -1,14 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/Card";
-import { Calendar, MessageSquare, Star, TrendingUp, Users, BookOpen, Loader2 } from "lucide-react";
+import {
+  Calendar, MessageSquare, Star, TrendingUp,
+  Users, BookOpen, Loader2, ArrowRight, Zap,
+  Clock, CheckCircle2,
+} from "lucide-react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useProfile } from "../../hooks/useProfile";
 import { getDisplayName } from "../../utils/avatar";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { getMyRequests, getUserSkills } from "../../services";
-import type { SwapRequest, UserSkill } from "../../types/tables";
+import type { UserSkill } from "../../types/tables";
 import { requireAuthUserId } from "../../lib/requireAuth";
 
 export default function Dashboard() {
@@ -32,17 +35,23 @@ export default function Dashboard() {
         const userId = await requireAuthUserId();
         setCurrentUserId(userId);
 
-        const [requestsData, skillsData, { data: convData }, { count: reqCount }] = await Promise.all([
-          getMyRequests(),
-          getUserSkills(),
-          supabase.from("conversations").select("*").or(`user_1.eq.${userId},user_2.eq.${userId}`),
-          supabase.from("swap_requests").select("*", { count: "exact", head: true }).eq("requester_id", userId)
-        ]);
+        const [requestsData, skillsData, { data: convData }, { count: reqCount }] =
+          await Promise.all([
+            getMyRequests(),
+            getUserSkills(),
+            supabase
+              .from("conversations")
+              .select("*")
+              .or(`user_1.eq.${userId},user_2.eq.${userId}`),
+            supabase
+              .from("swap_requests")
+              .select("*", { count: "exact", head: true })
+              .eq("requester_id", userId),
+          ]);
 
-        const uniqueUsers = new Set();
-        convData?.forEach(c => {
-          const other = c.user_1 === userId ? c.user_2 : c.user_1;
-          uniqueUsers.add(other);
+        const uniqueUsers = new Set<string>();
+        convData?.forEach((c) => {
+          uniqueUsers.add(c.user_1 === userId ? c.user_2 : c.user_1);
         });
 
         setRequests(requestsData);
@@ -56,215 +65,224 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
+
     loadDashboardData();
 
-    // Setup realtime subscription for swap_requests
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    requireAuthUserId().then(userId => {
+    requireAuthUserId().then((userId) => {
       channel = supabase
         .channel("dashboard-requests")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "swap_requests", filter: `requester_id=eq.${userId}` },
-          () => {
-            loadDashboardData();
-          }
+          () => loadDashboardData()
         )
         .subscribe();
     });
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
 
   const skillsLearning = userSkills.filter((s) => s.skill_type === "learn").length;
 
   const stats = [
-    { label: "Active Requests", value: String(activeRequestsCount), icon: Calendar, color: "text-primary bg-muted" },
-    { label: "Total Courses (Chats)", value: String(totalChats), icon: BookOpen, color: "text-accent bg-muted" },
-    { label: "Skills Learning", value: String(skillsLearning), icon: TrendingUp, color: "text-green-600 bg-green-100" },
-    { label: "Connections", value: String(connections), icon: Users, color: "text-blue-600 bg-blue-100" },
+    { label: "Active Requests", value: activeRequestsCount, icon: Calendar, accent: "text-primary", bg: "bg-primary/10" },
+    { label: "Total Chats", value: totalChats, icon: BookOpen, accent: "text-amber-400", bg: "bg-amber-400/10" },
+    { label: "Skills Learning", value: skillsLearning, icon: TrendingUp, accent: "text-emerald-400", bg: "bg-emerald-400/10" },
+    { label: "Connections", value: connections, icon: Users, accent: "text-sky-400", bg: "bg-sky-400/10" },
   ];
 
-  const currentRequests = requests
+  const myRequests = requests
     .filter((r) => r.requester_id === currentUserId)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 1);
+    .slice(0, 3);
 
-
-
-  // Recent activity: derived from recent requests + sessions
-  type ActivityItem = { id: string; type: string; text: string; time: string; rawDate: string };
-  const recentActivity: ActivityItem[] = [];
-
-  // Add recent requests as activity
-  requests.slice(0, 3).forEach((r) => {
-    const timeAgo = getTimeAgo(r.created_at);
-    if (r.status === "accepted") {
-      recentActivity.push({
-        id: `req-${r.id}`,
-        type: "session",
-        text: "Swap request accepted",
-        time: timeAgo,
-        rawDate: r.created_at,
-      });
-    } else if (r.status === "pending") {
-      recentActivity.push({
-        id: `req-${r.id}`,
-        type: "message",
-        text: "New swap request pending",
-        time: timeAgo,
-        rawDate: r.created_at,
-      });
-    }
-  });
-
-  // Sort by most recent and limit to 5
-  const sortedActivity = recentActivity
+  // Recent activity derived from requests
+  type ActivityItem = { id: string; icon: typeof Clock; text: string; time: string; rawDate: string; color: string };
+  const recentActivity: ActivityItem[] = requests
+    .slice(0, 5)
+    .flatMap((r): ActivityItem[] => {
+      if (r.status === "accepted") {
+        return [{ id: `req-${r.id}`, icon: CheckCircle2, text: "Swap request accepted", time: getTimeAgo(r.created_at), rawDate: r.created_at, color: "text-emerald-400" }];
+      }
+      if (r.status === "pending") {
+        return [{ id: `req-${r.id}`, icon: Clock, text: "Swap request pending", time: getTimeAgo(r.created_at), rawDate: r.created_at, color: "text-amber-400" }];
+      }
+      return [];
+    })
     .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime())
-    .slice(0, 5);
+    .slice(0, 4);
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-8 flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="size-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="size-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
-      {/* Header */}
-      <div className="mb-10 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent blur-3xl -z-10 -m-8" />
-        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70 mb-3 tracking-tight">
-          Welcome back, {welcomeName}!
-        </h1>
-        <p className="text-lg text-muted-foreground font-medium">Here's what's happening with your learning journey</p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+
+      {/* ── Header ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm px-6 py-6 sm:py-7">
+        {/* Decorative glow */}
+        <div className="absolute -top-8 -right-8 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-2">Dashboard</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-snug">
+            Welcome back, <span className="text-primary">{welcomeName}</span>!
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Here's what's happening with your learning journey.
+          </p>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.label} variant="bordered" className="hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 border border-border/50 shadow-md hover:shadow-xl bg-card overflow-hidden group">
-              <CardContent className="flex items-center gap-5 relative z-10 p-6">
-                <div className={`size-14 rounded-2xl ${stat.color} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon className="size-7" />
-                </div>
-                <div>
-                  <p className="text-3xl font-black text-foreground tracking-tight">{stat.value}</p>
-                  <p className="text-sm font-medium text-muted-foreground mt-0.5">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {stats.map(({ label, value, icon: Icon, accent, bg }) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-4 sm:p-5 hover:-translate-y-0.5 hover:border-border/70 transition-all duration-200 group"
+          >
+            <div className={`size-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
+              <Icon className={`size-4 ${accent}`} />
+            </div>
+            <p className={`text-2xl sm:text-3xl font-black ${accent}`}>{value}</p>
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">{label}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Current Requests */}
-        <div className="lg:col-span-2">
-          <Card variant="elevated">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Requests</CardTitle>
+      {/* ── Main grid ── */}
+      <div className="grid lg:grid-cols-3 gap-4">
+
+        {/* ── Requests (2/3 width) ── */}
+        <div className="lg:col-span-2 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+            <div>
+              <h2 className="font-bold text-foreground text-sm">Requests</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Your active skill swaps</p>
+            </div>
+            <Link
+              to="/requests"
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-70 transition-opacity"
+            >
+              View all <ArrowRight className="size-3" />
+            </Link>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {myRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center rounded-xl border border-dashed border-border/40 bg-muted/10">
+                <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                  <Calendar className="size-4 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">No requests yet</p>
+                <p className="text-xs text-muted-foreground mt-0.5 mb-4">Start by finding a match.</p>
+                <Link to="/matching">
+                  <Button variant="outline" size="sm">Find Matches</Button>
+                </Link>
               </div>
-              <CardDescription>Your active skill requests</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {currentRequests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-muted/20 rounded-xl border border-dashed border-border">
-                  <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                    <Calendar className="size-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">No requests yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Check back later or start exploring.</p>
-                </div>
-              ) : (
-                currentRequests.map((request: any) => (
+            ) : (
+              myRequests.map((request: any) => {
+                const statusColor =
+                  request.status === "accepted" ? "bg-emerald-500/15 text-emerald-400" :
+                    request.status === "rejected" ? "bg-red-500/15 text-red-400" :
+                      "bg-primary/15 text-primary";
+
+                return (
                   <div
                     key={request.id}
-                    className="p-5 bg-gradient-to-br from-background to-muted/30 border border-border/60 rounded-xl hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
                     onClick={() => navigate("/requests")}
+                    className="cursor-pointer rounded-xl border border-border/30 bg-background/40 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 p-4 group"
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <h4 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">Skill Swap Request</h4>
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary tracking-wide">
-                        PENDING
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors">
+                        Skill Swap Request
+                      </p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>
+                        {request.status || "pending"}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="p-3 bg-card border border-border/50 rounded-lg shadow-sm">
-                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Learning</p>
-                        <p className="font-medium text-foreground truncate">{request.skill_learn || request.requested_skill?.name || "..."}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-lg bg-muted/30 border border-border/20">
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Learning</p>
+                        <p className="font-semibold text-foreground text-xs truncate">
+                          {request.skill_learn || request.requested_skill?.name || "—"}
+                        </p>
                       </div>
-                      <div className="p-3 bg-card border border-border/50 rounded-lg shadow-sm">
-                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Teaching</p>
-                        <p className="font-medium text-foreground truncate">{request.skill_teach || request.offered_skill?.name || "..."}</p>
+                      <div className="p-2.5 rounded-lg bg-muted/30 border border-border/20">
+                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-0.5">Teaching</p>
+                        <p className="font-semibold text-foreground text-xs truncate">
+                          {request.skill_teach || request.offered_skill?.name || "—"}
+                        </p>
                       </div>
                     </div>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Quick Actions & Activity */}
-        <div className="space-y-6">
+        {/* ── Right column (1/3 width) ── */}
+        <div className="space-y-4">
+
           {/* Quick Actions */}
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Link to="/matching" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="size-5 mr-2" />
-                  Find Teachers
-                </Button>
-              </Link>
-              <Link to="/chat" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <MessageSquare className="size-5 mr-2" />
-                  Messages
-                </Button>
-              </Link>
-              <Link to="/profile" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Star className="size-5 mr-2" />
-                  Update Profile
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border/30">
+              <Zap className="size-3.5 text-primary" />
+              <h2 className="font-bold text-foreground text-sm">Quick Actions</h2>
+            </div>
+            <div className="p-2.5 space-y-0.5">
+              {[
+                { to: "/matching", icon: Users, label: "Find Teachers" },
+                { to: "/chat", icon: MessageSquare, label: "Messages" },
+                { to: "/profile", icon: Star, label: "Update Profile" },
+              ].map(({ to, icon: Icon, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-muted/50 hover:text-primary transition-colors group"
+                >
+                  <div className="size-7 rounded-lg bg-muted/50 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                    <Icon className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  {label}
+                  <ArrowRight className="size-3 ml-auto text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                </Link>
+              ))}
+            </div>
+          </div>
 
           {/* Recent Activity */}
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {sortedActivity.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  No recent activity
-                </p>
+          <div className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-border/30">
+              <h2 className="font-bold text-foreground text-sm">Recent Activity</h2>
+            </div>
+            <div className="p-3 space-y-0.5">
+              {recentActivity.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No recent activity</p>
               ) : (
-                sortedActivity.map((activity) => (
-                  <div key={activity.id} className="flex gap-3">
-                    <div className="size-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-foreground">{activity.text}</p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
+                recentActivity.map((a) => {
+                  const Icon = a.icon;
+                  return (
+                    <div key={a.id} className="flex items-start gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/30 transition-colors">
+                      <div className={`mt-0.5 size-6 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`size-3 ${a.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground leading-snug">{a.text}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{a.time}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -272,15 +290,12 @@ export default function Dashboard() {
 }
 
 function getTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
   if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} min ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "1 day ago";
-  return `${diffDays} days ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffH = Math.floor(diffMins / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  return diffD === 1 ? "1 day ago" : `${diffD} days ago`;
 }

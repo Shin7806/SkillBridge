@@ -1,15 +1,32 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
-import { Input, Textarea } from "../components/Input";
-import { Card, CardHeader, CardTitle, CardDescription } from "../components/Card";
+import { Textarea } from "../components/Input";
+import { Card } from "../components/Card";
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { SkillAutocomplete } from "../components/SkillAutocomplete";
 import { SKILL_SUGGESTIONS } from "../data/skills";
-import { getAllSkills } from "../../services/skills";
 import { supabase } from "../../lib/supabase";
-import { getUserSkills } from "../../services/userSkills";
-import { sendSwapRequest } from "../../services/swapRequests";
+
+const LEARNING_GOALS = [
+  "Build a personal project",
+  "Get a job or promotion",
+  "Freelance or earn money",
+  "Pass an exam or certification",
+  "Start a business",
+  "Improve existing skills",
+  "Explore a new hobby",
+  "Teach others in the future",
+  "Create an app or website",
+  "Understand fundamentals",
+  "Improve communication skills",
+  "Switch careers",
+  "Academic learning",
+  "Creative expression",
+  "Personal growth and confidence",
+];
+
+const MAX_GOALS = 5;
 
 export default function SkillRequest() {
   const navigate = useNavigate();
@@ -23,20 +40,22 @@ export default function SkillRequest() {
   });
 
   const [goals, setGoals] = useState<string[]>([]);
-  const [newGoal, setNewGoal] = useState("");
-
-  const addGoal = () => {
-    if (!newGoal.trim()) return;
-    setGoals([...goals, newGoal]);
-    setNewGoal("");
-  };
-
-  const removeGoal = (index: number) => {
-    setGoals(goals.filter((_, i) => i !== index));
-  };
-
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const toggleGoal = (goal: string) => {
+    if (goals.includes(goal)) {
+      setGoals(goals.filter((g) => g !== goal));
+    } else {
+      if (goals.length >= MAX_GOALS) return;
+      setGoals([...goals, goal]);
+    }
+  };
+
+  const removeGoal = (goal: string) => {
+    setGoals(goals.filter((g) => g !== goal));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +76,14 @@ export default function SkillRequest() {
         return;
       }
 
-      if (formData.requestedSkill.trim().toLowerCase() === formData.offeredSkill.trim().toLowerCase()) {
+      if (
+        formData.requestedSkill.trim().toLowerCase() ===
+        formData.offeredSkill.trim().toLowerCase()
+      ) {
         throw new Error("You cannot request and offer the same skill");
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("swap_requests")
         .insert({
           requester_id: currentUser.id,
@@ -69,6 +91,10 @@ export default function SkillRequest() {
           skill_teach: formData.offeredSkill.trim(),
           message: formData.description.trim() || null,
           status: "pending",
+          level: formData.level,
+          duration: formData.duration,
+          frequency: formData.frequency,
+          goals: goals.length > 0 ? goals : null,
         })
         .select()
         .single();
@@ -131,11 +157,10 @@ export default function SkillRequest() {
                   key={level}
                   type="button"
                   onClick={() => setFormData({ ...formData, level })}
-                  className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                    formData.level === level
+                  className={`px-4 py-3 rounded-lg border-2 transition-all ${formData.level === level
                       ? "border-primary bg-muted text-primary"
                       : "border-border hover:border-slate-400"
-                  }`}
+                    }`}
                 >
                   <span className="font-medium capitalize">{level}</span>
                 </button>
@@ -157,38 +182,109 @@ export default function SkillRequest() {
 
           {/* Learning Goals */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Learning goals (optional)
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Learning goals{" "}
+              <span className="text-muted-foreground font-normal">
+                (optional · up to {MAX_GOALS})
+              </span>
             </label>
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="e.g., Build a personal website"
-                value={newGoal}
-                onChange={(e) => setNewGoal(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addGoal())}
-              />
-              <Button type="button" onClick={addGoal} variant="primary">
-                <Plus className="size-5" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {goals.map((goal, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-accent rounded-lg"
-                >
-                  {goal}
-                  <button
-                    type="button"
-                    onClick={() => removeGoal(index)}
-                    className="hover:opacity-80"
-                    aria-label={`Remove ${goal}`}
+
+            {goals.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {goals.map((goal) => (
+                  <span
+                    key={goal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium"
                   >
-                    <X className="size-4" />
-                  </button>
+                    {goal}
+                    <button
+                      type="button"
+                      onClick={() => removeGoal(goal)}
+                      className="hover:opacity-70 transition-opacity"
+                      aria-label={`Remove ${goal}`}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDropdownOpen((v) => !v)}
+                disabled={goals.length >= MAX_GOALS}
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-card border border-border rounded-lg text-sm text-foreground hover:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="text-muted-foreground">
+                  {goals.length >= MAX_GOALS
+                    ? "Maximum goals selected"
+                    : "Select a learning goal…"}
                 </span>
-              ))}
+                <ChevronDown
+                  className={`size-4 text-muted-foreground transition-transform ${dropdownOpen ? "rotate-180" : ""
+                    }`}
+                />
+              </button>
+
+              {dropdownOpen && goals.length < MAX_GOALS && (
+                <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {LEARNING_GOALS.map((goal) => {
+                      const selected = goals.includes(goal);
+                      return (
+                        <button
+                          key={goal}
+                          type="button"
+                          onClick={() => {
+                            toggleGoal(goal);
+                            if (!selected && goals.length + 1 >= MAX_GOALS) {
+                              setDropdownOpen(false);
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selected
+                              ? "bg-primary/10 text-primary font-medium"
+                              : "hover:bg-muted text-foreground"
+                            }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`size-4 rounded border flex items-center justify-center shrink-0 ${selected ? "bg-primary border-primary" : "border-border"
+                                }`}
+                            >
+                              {selected && (
+                                <svg
+                                  className="size-2.5 text-white"
+                                  viewBox="0 0 10 8"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M1 4l3 3 5-6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </span>
+                            {goal}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {dropdownOpen && (
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setDropdownOpen(false)}
+              />
+            )}
           </div>
 
           {/* Session Preferences */}

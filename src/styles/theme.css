@@ -134,11 +134,6 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
-
   html {
     font-size: var(--font-size);
   }
@@ -183,5 +178,330 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Glassmorphism utilities
+   Used by AppLayout sidebar, top nav, cards
+───────────────────────────────────────────── */
+@layer utilities {
+
+  /* Glass surface — subtle, works in both light & dark */
+  .glass {
+    background-color: color-mix(in srgb, var(--card) 70%, transparent);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+
+  /* Slightly more opaque glass for popovers / dropdowns */
+  .glass-heavy {
+    background-color: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+
+  /* Frosted top-nav bar */
+  .glass-bar {
+    background-color: color-mix(in srgb, var(--background) 75%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  }
+
+  /* Smooth sidebar active indicator */
+  .nav-active-indicator {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 1.25rem;
+    border-radius: 0 4px 4px 0;
+    background-color: var(--primary);
+
+    /* very subtle premium flicker */
+    @keyframes subtleFlicker {
+
+      0%,
+      100% {
+        opacity: 1;
+        text-shadow:
+          0 0 0px rgba(255, 255, 255, 0),
+          0 0 14px rgba(255, 255, 255, 0.03);
+      }
+
+      48% {
+        opacity: .985;
+      }
+
+      49% {
+        opacity: .97;
+      }
+
+      50% {
+        opacity: .99;
+        text-shadow:
+          0 0 8px rgba(255, 255, 255, 0.04);
+      }
+
+      51% {
+        opacity: .985;
+      }
+
+      52% {
+        opacity: 1;
+      }
+    }
+
+    .subtle-flicker {
+      animation: subtleFlicker 8s infinite;
+      will-change: opacity;
+
+      /* subtle modern reveal */
+      @keyframes premiumReveal {
+        0% {
+          opacity: 0;
+          transform: translateY(14px);
+          filter: blur(8px);
+        }
+
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+          filter: blur(0);
+        }
+      }
+
+      /* soft breathing glow */
+      @keyframes ambientGlow {
+
+        0%,
+        100% {
+          text-shadow:
+            0 0 0px rgba(255, 255, 255, 0),
+            0 0 18px rgba(255, 255, 255, .02);
+        }
+
+        50% {
+          text-shadow:
+            0 0 16px rgba(255, 255, 255, .05),
+            0 0 30px rgba(255, 255, 255, .025);
+        }
+      }
+
+      .reveal-premium {
+        animation:
+          premiumReveal .9s cubic-bezier(.16, 1, .3, 1),
+          ambientGlow 6s ease-in-out infinite;
+
+        will-change: transform, opacity;
+
+        .learn-premium {
+          display: inline-block;
+
+          font-family: "Ngetic", serif;
+          font-style: italic;
+          font-weight: 400;
+
+          color: #F6C945;
+
+          /* spacing because Ngetic-style fonts are dramatic */
+          line-height: .95;
+
+          /* soft gold glow */
+          text-shadow:
+            0 0 8px rgba(246, 201, 69, .10),
+            0 0 18px rgba(246, 201, 69, .05);
+
+          animation:
+            premiumFlicker 7s infinite ease-in-out,
+            glowPulse 6s infinite ease-in-out;
+
+          transition: all .3s ease;
+        }
+
+        /* tiny premium flicker — almost invisible */
+        @keyframes premiumFlicker {
+
+          0%,
+          100% {
+            opacity: 1;
+          }
+
+          48% {
+            opacity: 1;
+          }
+
+          49% {
+            opacity: .96;
+          }
+
+          50% {
+            opacity: .985;
+          }
+
+          51% {
+            opacity: 1;
+          }
+        }
+
+        /* breathing glow */
+        @keyframes glowPulse {
+
+          0%,
+          100% {
+            text-shadow:
+              0 0 8px rgba(246, 201, 69, .08),
+              0 0 16px rgba(246, 201, 69, .03);
+          }
+
+          50% {
+            text-shadow:
+              0 0 15px rgba(246, 201, 69, .18),
+              0 0 28px rgba(246, 201, 69, .08);
+          }
+        }
+
+        @media (max-width:640px) {
+
+          .learn-premium {
+            line-height: 1.05;
+
+            @font-face {
+              font-family: "NgeticItalic";
+              src: url("/fonts/Ngetic-Italic.woff2") format("woff2");
+              font-weight: 400;
+              font-style: italic;
+            }
+
+            .learn-premium {
+              display: inline-block;
+
+              font-family: "NgeticItalic", serif !important;
+              font-style: italic;
+
+              color: #f4c430;
+
+              position: relative;
+
+              text-shadow:
+                0 0 10px rgba(244, 196, 48, .10),
+                0 0 20px rgba(244, 196, 48, .05);
+
+              animation:
+                subtleGlow 6s ease-in-out infinite,
+                subtleFlicker 8s infinite;
+            }
+
+            /* premium breathing glow */
+            @keyframes subtleGlow {
+
+              0%,
+              100% {
+                text-shadow:
+                  0 0 8px rgba(244, 196, 48, .08),
+                  0 0 16px rgba(244, 196, 48, .03);
+              }
+
+              50% {
+                text-shadow:
+                  0 0 18px rgba(244, 196, 48, .18),
+                  0 0 34px rgba(244, 196, 48, .08);
+              }
+            }
+
+            /* almost invisible flicker */
+            @keyframes subtleFlicker {
+
+              0%,
+              100%,
+              48%,
+              52% {
+                opacity: 1;
+              }
+
+              50% {
+                opacity: .96;
+              }
+            }
+          }
+
+        }
+      }
+    }
+  }
+}
+
+/* ==========================================
+   SkillBridge hero bottom line enhancement
+   APPEND AT END OF FILE — outside all blocks
+========================================== */
+
+@font-face {
+  font-family: "NgeticItalic";
+  src: url("/fonts/Ngetic-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+}
+
+.learn-premium {
+  display: inline-block;
+  position: relative;
+
+  font-family: "NgeticItalic", serif !important;
+  font-style: italic;
+  font-weight: 400;
+
+  color: #F5B301;
+
+  /* editorial fonts need tighter spacing */
+  line-height: .95;
+
+  /* subtle premium glow */
+  text-shadow:
+    0 0 8px rgba(245, 179, 1, .08),
+    0 0 18px rgba(245, 179, 1, .03);
+
+  animation:
+    premiumGlow 6s ease-in-out infinite,
+    premiumFlicker 8s ease-in-out infinite;
+}
+
+@keyframes premiumGlow {
+
+  0%,
+  100% {
+    text-shadow:
+      0 0 8px rgba(245, 179, 1, .08),
+      0 0 16px rgba(245, 179, 1, .03);
+  }
+
+  50% {
+    text-shadow:
+      0 0 18px rgba(245, 179, 1, .18),
+      0 0 34px rgba(245, 179, 1, .08);
+  }
+}
+
+@keyframes premiumFlicker {
+
+  0%,
+  48%,
+  52%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .965;
+  }
+}
+
+@media (max-width:640px) {
+  .learn-premium {
+    line-height: 1.05;
   }
 }
