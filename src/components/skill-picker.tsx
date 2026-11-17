@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { SelectField } from "./kit";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { addSkill, type SkillChoice } from "@/lib/api";
 import { LEVELS, type Level, type Skill } from "@/lib/types";
@@ -67,11 +68,11 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
             return (
               <li key={choice.skill_id} className={cn("flex items-center gap-2 rounded-lg py-1 pl-3 pr-1 ring-1 ring-inset", isTeach ? "bg-primary/[0.07] ring-primary/20" : "bg-learn/[0.07] ring-learn/20")}>
                 <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", isTeach ? "text-primary" : "text-learn")}>{name}</span>
-                <select
+                <SelectField
                   aria-label={`${isTeach ? "Your level in" : "Your current level in"} ${name}`}
                   value={choice.level ?? ""}
                   onChange={(e) => onChange(value.map((v) => (v.skill_id === choice.skill_id ? { ...v, level: (e.target.value || null) as Level | null } : v)))}
-                  className="h-8 rounded-md border border-input bg-background px-1.5 text-[16px] text-foreground sm:text-[13px]"
+                  className="h-8 w-28 px-2 text-[13px] sm:h-8"
                 >
                   <option value="">Level</option>
                   {LEVELS.map((l) => (
@@ -79,7 +80,7 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
                       {l.label}
                     </option>
                   ))}
-                </select>
+                </SelectField>
                 <button
                   type="button"
                   aria-label={`Remove ${name}`}

@@ -51,6 +51,18 @@ export function SwapAction({ person, size = "md", onPropose }: { person: Pick<Pe
   );
 }
 
+/** One line about someone: their headline, else what they bring. */
+function tagline(p: PersonCard) {
+  if (p.headline) return p.headline;
+  const bio = p.bio?.trim().split(/(?<=[.!?])\s/)[0];
+  if (bio) return bio;
+  const where = [p.organization, p.location].filter(Boolean).join(" · ");
+  if (where) return where;
+  const t = p.teaches.length, l = p.learns.length;
+  if (t || l) return [t && `Teaches ${t} skill${t > 1 ? "s" : ""}`, l && `learning ${l}`].filter(Boolean).join(" · ").replace(/^l/, "L");
+  return "New to SkillBridge";
+}
+
 export function PersonCardView({ person }: { person: PersonCard }) {
   const [proposing, setProposing] = useState(false);
   const kind = person.kind ? KIND[person.kind] : null;
@@ -67,7 +79,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
               {name}
             </Link>
           </h3>
-          <p className="truncate text-[12px] text-muted-foreground">{person.headline || person.organization || person.location || "SkillBridge member"}</p>
+          <p className="truncate text-[12px] text-muted-foreground">{tagline(person)}</p>
         </div>
         {kind && <Badge tone={kind.tone}>{kind.label}</Badge>}
       </div>

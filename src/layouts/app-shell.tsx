@@ -10,7 +10,7 @@ import { NotificationList } from "@/pages/notifications";
 import { markNotificationsRead, signOut } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { useAction, useMediaQuery, useNotifications, useRealtime, useSessions, useSwaps } from "@/lib/hooks";
-import { SessionsPanelContext } from "@/lib/sessions-panel";
+import { SessionsPanelContext, useSessionsPanel } from "@/lib/sessions-panel";
 import type { Session } from "@/lib/types";
 import { cn, displayName, errorMessage, myTimezone } from "@/lib/utils";
 
@@ -86,7 +86,8 @@ function NotificationBell() {
   );
 }
 
-function UserMenu() {
+function UserMenu({ sessionsDue }: { sessionsDue: number }) {
+  const panel = useSessionsPanel();
   const { user, profile } = useMe();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -105,8 +106,9 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="Account menu" className="rounded-full ring-offset-2 ring-offset-background transition-shadow hover:ring-2 hover:ring-border">
+        <button type="button" aria-label={sessionsDue ? `Account menu, ${sessionsDue} sessions to confirm` : "Account menu"} className="relative rounded-full ring-offset-2 ring-offset-background transition-shadow hover:ring-2 hover:ring-border">
           <Avatar name={profile.full_name} src={profile.avatar_url} size="sm" />
+          {sessionsDue > 0 && <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-primary ring-2 ring-background" aria-hidden />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 rounded-lg">
@@ -117,6 +119,10 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate("/profile")}>
           <User /> Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => panel.setOpen(true)}>
+          <CalendarDays /> Sessions
+          {sessionsDue > 0 && <CountDot count={sessionsDue} className="ml-auto" />}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate("/settings")}>
           <Settings /> Settings
@@ -211,6 +217,8 @@ export default function AppShell() {
   const { user } = useMe();
   const navigate = useNavigate();
   const location = useLocation();
+  // Inside a conversation on phones, the chat gets the whole screen.
+  const inChat = /^\/messages\/[^/]+/.test(location.pathname);
   const items = useNavItems();
   const sessionsDue = useSessionsNeedingYou(user.id);
   const wide = useMediaQuery("(min-width: 1280px)");
@@ -267,7 +275,7 @@ export default function AppShell() {
           )}
         >
           <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center" : "px-4")}>
-            <Link to="/home" aria-label="SkillBridge home" className="transition-opacity hover:opacity-80">
+            <Link to="/home" aria-label="SkillBridge home" className="flex h-full items-center transition-opacity hover:opacity-80">
               <Logo compact={collapsed} />
             </Link>
           </div>
@@ -318,28 +326,15 @@ export default function AppShell() {
         </aside>
 
         {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/85 px-3 backdrop-blur-md sm:px-4">
-          <Link to="/home" className="md:hidden" aria-label="SkillBridge home">
+        <header className={cn("sticky top-0 z-40 h-14", inChat ? "hidden md:flex" : "flex", " items-center justify-between gap-3 border-b border-border bg-background/85 px-3 backdrop-blur-md sm:px-4")}>
+          <Link to="/home" className="flex h-full items-center md:hidden" aria-label="SkillBridge home">
             <Logo />
           </Link>
           <span className="hidden md:block" />
           <div className="flex items-center gap-1">
             <NotificationBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn("relative", panelOpen && "bg-foreground/[0.07] text-foreground")}
-              onClick={panel.toggle}
-              aria-label={sessionsDue ? `Sessions, ${sessionsDue} to confirm` : "Sessions"}
-              aria-expanded={panelOpen}
-              aria-controls="sessions-panel"
-              title="Sessions"
-            >
-              <CalendarDays />
-              {sessionsDue > 0 && <CountDot count={sessionsDue} className="absolute -right-0.5 -top-0.5 h-4 min-w-4 text-[9px]" />}
-            </Button>
             <span className="mx-1 h-5 w-px bg-border" aria-hidden />
-            <UserMenu />
+            <UserMenu sessionsDue={sessionsDue} />
           </div>
         </header>
 
@@ -350,7 +345,7 @@ export default function AppShell() {
         <SessionsPanel open={panelOpen} onClose={() => setPanelOpen(false)} meId={user.id} />
 
         {/* Mobile tab bar */}
-        <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md md:hidden">
+        <nav aria-label="Main" className={cn("pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md md:hidden", inChat && "hidden")}>
           <ul className="grid grid-cols-4">
             {items
               .filter((i) => i.mobile)

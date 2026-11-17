@@ -1,7 +1,8 @@
 // The small set of building blocks every screen is made from. Dense, quiet, consistent.
-import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { Children, forwardRef, Fragment, isValidElement, useId, useState, type ButtonHTMLAttributes, type ChangeEvent, type OptionHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link, type LinkProps } from "react-router-dom";
-import { ArrowLeftRight, Loader2, type LucideIcon } from "lucide-react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { ArrowLeftRight, Check, ChevronDown, Loader2, type LucideIcon } from "lucide-react";
 import { avatarSrc, cn, initials } from "@/lib/utils";
 
 // ── Button ───────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ const CONTROL =
   "w-full rounded-lg border border-input bg-background px-3 text-foreground placeholder:text-muted-foreground/60 transition-[border-color,box-shadow] duration-150 hover:border-foreground/20 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/15 disabled:opacity-60 aria-[invalid=true]:border-destructive";
 
 interface FieldShell {
-  label: string;
+  label?: string;
   hint?: string;
   error?: string | null;
   optional?: boolean;
@@ -68,14 +69,14 @@ interface FieldShell {
 
 function FieldWrap({ id, label, hint, error, optional, children, counter }: FieldShell & { id: string; children: ReactNode; counter?: string }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-3">
+    <div className={cn(label || counter ? "space-y-1.5" : "contents")}>
+      {(label || counter) && <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-[13px] font-medium text-foreground">
           {label}
           {optional && <span className="ml-1.5 font-normal text-muted-foreground">optional</span>}
         </label>
         {counter && <span className="text-[11px] tabular-nums text-muted-foreground">{counter}</span>}
-      </div>
+      </div>}
       {children}
       {error ? (
         <p id={`${id}-error`} role="alert" className="text-[13px] text-destructive">
@@ -121,22 +122,75 @@ export function TextArea({ label, hint, error, optional, className, id: idProp, 
   );
 }
 
-export function SelectField({ label, hint, error, optional, className, id: idProp, children, ...props }: FieldShell & SelectHTMLAttributes<HTMLSelectElement>) {
+type SelectOption = { value: string; label: ReactNode; disabled?: boolean };
+
+/** Reads <option> children so callers keep writing plain options. */
+function readOptions(children: ReactNode): SelectOption[] {
+  const out: SelectOption[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement<OptionHTMLAttributes<HTMLOptionElement>>(child)) return;
+    if (child.type === Fragment) return void out.push(...readOptions((child.props as { children?: ReactNode }).children));
+    out.push({ value: String(child.props.value ?? ""), label: child.props.children, disabled: child.props.disabled });
+  });
+  return out;
+}
+
+const EMPTY = "__empty__";
+
+/** Styled, keyboard-accessible select (Radix). Same API as a native select with <option> children. */
+export function SelectField({ label, hint, error, optional, className, id: idProp, children, value, onChange, disabled, name, "aria-label": ariaLabel }: FieldShell & SelectHTMLAttributes<HTMLSelectElement>) {
   const auto = useId();
   const id = idProp ?? auto;
   const shell = { label, hint, error, optional };
+  const options = readOptions(children);
+  const toKey = (v: string) => (v === "" ? EMPTY : v);
+  const placeholder = options.find((o) => o.value === "")?.label;
   return (
     <FieldWrap id={id} {...shell}>
-      <select
-        id={id}
-        aria-invalid={!!error}
-        aria-describedby={describedBy(id, shell)}
-        className={cn(CONTROL, "h-10 appearance-none bg-[length:14px] bg-[right_0.65rem_center] bg-no-repeat pr-8 sm:h-9", className)}
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239da3ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")` }}
-        {...props}
+      <SelectPrimitive.Root
+        value={toKey(String(value ?? ""))}
+        disabled={disabled}
+        name={name}
+        onValueChange={(v) => onChange?.({ target: { value: v === EMPTY ? "" : v }, currentTarget: { value: v === EMPTY ? "" : v } } as unknown as ChangeEvent<HTMLSelectElement>)}
       >
-        {children}
-      </select>
+        <SelectPrimitive.Trigger
+          id={id}
+          aria-label={ariaLabel}
+          aria-invalid={!!error}
+          aria-describedby={describedBy(id, shell)}
+          className={cn(CONTROL, "group flex h-10 items-center justify-between gap-2 text-left data-[placeholder]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:h-9", className)}
+        >
+          <span className="min-w-0 truncate">
+            <SelectPrimitive.Value placeholder={placeholder} />
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={4}
+            className="z-[60] max-h-[min(var(--radix-select-content-available-height),18rem)] w-[var(--radix-select-trigger-width)] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-xl shadow-black/30 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          >
+            <SelectPrimitive.Viewport className="scrollbar-thin p-1">
+              {options.map((o) => (
+                <SelectPrimitive.Item
+                  key={o.value || EMPTY}
+                  value={toKey(o.value)}
+                  disabled={o.disabled}
+                  className="relative flex h-9 cursor-default select-none items-center rounded-md pl-2.5 pr-8 text-[14px] outline-none transition-colors data-[disabled]:pointer-events-none data-[highlighted]:bg-foreground/[0.07] data-[state=checked]:font-medium data-[disabled]:opacity-40 sm:h-8 sm:text-[13px]"
+                >
+                  <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex">
+                    <Check className="size-3.5 text-primary" aria-hidden />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
     </FieldWrap>
   );
 }

@@ -185,7 +185,7 @@ export default function Messages() {
   useDocumentTitle(current ? `${firstName(current.other.full_name)} · Messages` : "Messages");
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem-3.5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)]">
+    <div className={cn("flex md:h-[calc(100dvh-3.5rem)]", id ? "pb-safe h-dvh md:pb-0" : "h-[calc(100dvh-3.5rem-3.5rem-env(safe-area-inset-bottom))]")}>
       <section aria-label="Conversations" className={cn("flex w-full shrink-0 flex-col border-r border-border md:w-80", id && "hidden md:flex")}>
         <div className="space-y-3 border-b border-border p-3">
           <h1 className="px-1 text-lg">Messages</h1>
