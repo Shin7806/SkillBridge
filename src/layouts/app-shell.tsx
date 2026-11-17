@@ -246,6 +246,11 @@ export default function AppShell() {
 
   const panel = useMemo(() => ({ open: panelOpen, setOpen: setPanelOpen, toggle: () => setPanelOpen((o) => !o) }), [panelOpen]);
   const pushContent = panelOpen && wide;
+  // Lets the scrollbar gutter carry the top bar's bottom line.
+  useEffect(() => {
+    document.documentElement.classList.add("app-chrome");
+    return () => document.documentElement.classList.remove("app-chrome");
+  }, []);
 
   return (
     <SessionsPanelContext.Provider value={panel}>

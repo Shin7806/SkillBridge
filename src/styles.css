@@ -87,6 +87,12 @@
     /* Reserve the scrollbar's space so pages don't jump sideways when content grows past the fold. */
     scrollbar-gutter: stable;
     overflow-x: clip;
+    /* Paint the reserved gutter like the page, carrying the top bar's bottom line across it. */
+    background: var(--background);
+    scrollbar-color: var(--border) var(--background);
+  }
+  html.app-chrome {
+    background: linear-gradient(to bottom, transparent 55px, var(--border) 55px, var(--border) 56px, transparent 56px) fixed, var(--background);
   }
   /* The gutter is already reserved, so dialogs mustn't add their own scrollbar compensation. */
   html body[data-scroll-locked] {
