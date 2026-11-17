@@ -132,6 +132,10 @@ export interface Message {
   sender_id: string;
   body: string;
   created_at: string;
+  attachment_path: string | null;
+  attachment_name: string | null;
+  attachment_type: string | null;
+  attachment_size: number | null;
 }
 
 export interface Session {

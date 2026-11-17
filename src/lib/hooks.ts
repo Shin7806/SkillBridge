@@ -69,7 +69,7 @@ export function useAction<TArgs, TResult>(
 export function useSendMessage(swapId: string, senderId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) => api.sendMessage(swapId, senderId, body),
+    mutationFn: ({ body, file }: { body: string; file?: File | null }) => api.sendMessage(swapId, senderId, body, file),
     onSuccess: (message) => {
       appendMessage(queryClient, message);
       queryClient.invalidateQueries({ queryKey: ["swaps"] });

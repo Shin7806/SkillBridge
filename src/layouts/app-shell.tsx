@@ -41,6 +41,7 @@ function useNavItems(): NavItem[] {
     { to: "/discover", label: "Discover", icon: Compass, mobile: true },
     { to: "/swaps", label: "Swaps", icon: ArrowLeftRight, badge: proposals, mobile: true },
     { to: "/messages", label: "Messages", icon: MessagesSquare, badge: unread, mobile: true },
+    { to: "/sessions", label: "Sessions", icon: CalendarDays, mobile: false },
     { to: "/profile", label: "Profile", icon: User, mobile: false },
   ];
 }
@@ -252,7 +253,6 @@ export default function AppShell() {
         className={cn(
           "isolate min-h-dvh transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           collapsed ? "md:pl-[60px]" : "md:pl-56",
-          pushContent && "xl:pr-[380px]",
         )}
       >
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground">
@@ -343,7 +343,7 @@ export default function AppShell() {
           </div>
         </header>
 
-        <main id="main">
+        <main id="main" className={cn("transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", pushContent && "xl:pr-[380px]")}>
           <Outlet />
         </main>
 

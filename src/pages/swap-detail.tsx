@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Ban, CalendarPlus, Flag, MessageSquare, MoreHorizontal, XCircle } from "lucide-react";
+import { ArrowLeft, Ban, Flag, MessageSquare, MoreHorizontal, XCircle } from "lucide-react";
 import { Avatar, Badge, Button, ButtonLink, Card, EmptyState, LoadError, Page, Section, Spinner, SwapStrip } from "@/components/kit";
 import { ConfirmDialog } from "@/components/modal";
 import { ReportDialog } from "@/components/people";
-import { groupSessions, SessionCard, SessionDialog } from "@/components/sessions";
+import { SwapSessions } from "@/components/swap-sessions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import * as api from "@/lib/api";
 import { useMe } from "@/lib/auth";
-import { useAction, useDocumentTitle, useSessions, useSwap } from "@/lib/hooks";
+import { useAction, useDocumentTitle, useSwap } from "@/lib/hooks";
 import type { Swap } from "@/lib/types";
 import { displayName, firstName, formatDay, isUuid } from "@/lib/utils";
 
@@ -47,59 +47,6 @@ function Progress({ swap }: { swap: Swap }) {
         )}
       </div>
     </Card>
-  );
-}
-
-function SessionsSection({ swap, meId }: { swap: Swap; meId: string }) {
-  const sessions = useSessions(swap.id);
-  const [planning, setPlanning] = useState(false);
-  const active = swap.status === "accepted";
-  const g = sessions.data ? groupSessions(sessions.data, meId) : null;
-  const current = g ? [...g.toAnswer, ...g.toFinish, ...g.upcoming, ...g.waiting] : [];
-
-  return (
-    <Section
-      title="Sessions"
-      count={sessions.data?.length}
-      action={
-        active ? (
-          <Button size="sm" onClick={() => setPlanning(true)}>
-            <CalendarPlus /> Plan a session
-          </Button>
-        ) : undefined
-      }
-    >
-      {sessions.isPending ? (
-        <Spinner label="Loading sessions" />
-      ) : sessions.isError ? (
-        <LoadError error={sessions.error} retry={sessions.refetch} />
-      ) : sessions.data.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">
-          {active ? "No sessions yet. Suggest a time and the other person confirms." : "No sessions were planned in this swap."}
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {current.length > 0 && (
-            <ul className="space-y-2">
-              {current.map((s) => (
-                <SessionCard key={s.id} session={s} swap={swap} meId={meId} />
-              ))}
-            </ul>
-          )}
-          {g!.past.length > 0 && (
-            <div>
-              <p className="mb-2 text-[12px] text-muted-foreground">Earlier</p>
-              <ul className="space-y-2">
-                {g!.past.map((s) => (
-                  <SessionCard key={s.id} session={s} swap={swap} meId={meId} />
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-      <SessionDialog swap={swap} meId={meId} open={planning} onOpenChange={setPlanning} />
-    </Section>
   );
 }
 
@@ -196,7 +143,7 @@ export default function SwapDetail() {
         <Section title="Progress">
           <Progress swap={s} />
         </Section>
-        <SessionsSection swap={s} meId={user.id} />
+        <SwapSessions swap={s} meId={user.id} />
       </div>
 
       <ConfirmDialog

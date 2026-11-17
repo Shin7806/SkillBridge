@@ -149,17 +149,61 @@ export const markSwapRead = (id: string) => rpc<null>("mark_swap_read", { p_swap
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 export const MESSAGE_PAGE = 40;
+const MESSAGE_COLUMNS = "id, swap_id, sender_id, body, created_at, attachment_path, attachment_name, attachment_type, attachment_size";
 
 /** Newest page first from the server; returned oldest-first for rendering. */
 export async function listMessages(swapId: string, before?: string): Promise<Message[]> {
-  let q = supabase.from("messages").select("id, swap_id, sender_id, body, created_at").eq("swap_id", swapId).order("created_at", { ascending: false }).limit(MESSAGE_PAGE);
+  let q = supabase.from("messages").select(MESSAGE_COLUMNS).eq("swap_id", swapId).order("created_at", { ascending: false }).limit(MESSAGE_PAGE);
   if (before) q = q.lt("created_at", before);
   const rows = await unwrap<Message[]>(q);
   return rows.reverse();
 }
 
-export const sendMessage = (swapId: string, senderId: string, body: string) =>
-  unwrap<Message>(supabase.from("messages").insert({ swap_id: swapId, sender_id: senderId, body: body.trim() }).select("id, swap_id, sender_id, body, created_at").single());
+export const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+export const FILE_TYPES = [
+  "application/pdf", "text/plain", "text/csv",
+  "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+];
+
+/** Checks a file before upload; returns a sentence when it can't be sent. */
+export function attachmentProblem(file: File) {
+  if (file.size > MAX_ATTACHMENT_BYTES) return `${file.name} is over 4 MB.`;
+  if (![...IMAGE_TYPES, ...FILE_TYPES].includes(file.type)) return `${file.name} isn't a supported type. Use an image, PDF, Office document, text file or zip.`;
+  return null;
+}
+
+/** Sends text, a file, or both. Files go to the swap's private folder first. */
+export async function sendMessage(swapId: string, senderId: string, body: string, file?: File | null) {
+  let attachment: { attachment_path: string; attachment_name: string; attachment_type: string; attachment_size: number } | null = null;
+  if (file) {
+    const problem = attachmentProblem(file);
+    if (problem) throw new Error(problem);
+    const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-80) || "file";
+    const path = `${swapId}/${crypto.randomUUID()}-${safe}`;
+    const { error } = await supabase.storage.from("attachments").upload(path, file, { contentType: file.type });
+    if (error) throw new Error(error.message);
+    attachment = { attachment_path: path, attachment_name: file.name.slice(0, 200), attachment_type: file.type, attachment_size: file.size };
+  }
+  try {
+    return await unwrap<Message>(
+      supabase.from("messages").insert({ swap_id: swapId, sender_id: senderId, body: body.trim(), ...attachment }).select(MESSAGE_COLUMNS).single(),
+    );
+  } catch (err) {
+    if (attachment) await supabase.storage.from("attachments").remove([attachment.attachment_path]);
+    throw err;
+  }
+}
+
+/** Short-lived link to a private attachment. */
+export async function attachmentUrl(path: string, download?: string) {
+  const { data, error } = await supabase.storage.from("attachments").createSignedUrl(path, 3600, download ? { download } : undefined);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 const SESSION_COLUMNS =

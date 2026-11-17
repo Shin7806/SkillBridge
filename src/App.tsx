@@ -4,8 +4,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "./components/kit";
 import { SIGNED_OUT_FLAG, signOut } from "./lib/api";
 import { useAuth } from "./lib/auth";
-import { useSessionsPanel } from "./lib/sessions-panel";
-import { useEffect } from "react";
 
 const Landing = lazy(() => import("./pages/landing"));
 const AppShell = lazy(() => import("./layouts/app-shell"));
@@ -16,6 +14,7 @@ const PersonPage = lazy(() => import("./pages/person"));
 const Swaps = lazy(() => import("./pages/swaps"));
 const SwapDetail = lazy(() => import("./pages/swap-detail"));
 const Messages = lazy(() => import("./pages/messages"));
+const SessionsPage = lazy(() => import("./pages/sessions"));
 const Notifications = lazy(() => import("./pages/notifications"));
 const Profile = lazy(() => import("./pages/me"));
 const Settings = lazy(() => import("./pages/settings"));
@@ -90,13 +89,6 @@ function PublicOnly() {
   return user ? <Navigate to={from && from.startsWith("/") ? from : "/home"} replace /> : <Outlet />;
 }
 
-/** /sessions is a panel now: open it over Home. */
-function OpenSessions() {
-  const { setOpen } = useSessionsPanel();
-  useEffect(() => setOpen(true), [setOpen]);
-  return <Navigate to="/home" replace />;
-}
-
 function OldProfileRedirect() {
   const { id } = useParams();
   return <Navigate to={`/people/${id}`} replace />;
@@ -133,7 +125,7 @@ export default function App() {
               <Route path="/swaps/:id" element={<SwapDetail />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:id" element={<Messages />} />
-              <Route path="/sessions" element={<OpenSessions />} />
+              <Route path="/sessions" element={<SessionsPage />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />

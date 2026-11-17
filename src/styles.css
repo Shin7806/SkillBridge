@@ -84,6 +84,15 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    /* Reserve the scrollbar's space so pages don't jump sideways when content grows past the fold. */
+    scrollbar-gutter: stable;
+    overflow-x: clip;
+  }
+  /* The gutter is already reserved, so dialogs mustn't add their own scrollbar compensation. */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    --removed-body-scroll-bar-size: 0px;
   }
   body {
     background: var(--background);
@@ -144,6 +153,7 @@
     background: radial-gradient(circle, color-mix(in srgb, var(--learn) 12%, transparent) 0%, transparent 65%);
   }
   .scrollbar-thin {
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
