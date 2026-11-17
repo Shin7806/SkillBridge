@@ -1,116 +1,76 @@
 # SkillBridge
 
-A full-stack peer-to-peer skill exchange platform where users teach what they know and learn what they don't — no money, no institutions, just people helping each other grow.
+A free peer-to-peer skill exchange. You teach something you know, someone teaches you something you want to learn, and no money changes hands.
 
-🔗 **Live Demo**: [skill-bridge-shin7806s-projects.vercel.app](https://skill-bridge-shin7806s-projects.vercel.app)
+## What it does
 
----
+- **Accounts** — email and password or Google, email confirmation, forgot and reset password.
+- **Onboarding** — name, photo, skills you teach and skills you want to learn (with levels). You can't enter the app without at least one of each.
+- **Matching** — computed in the database from real skill lists. Two-way matches come first with the exact skills shown; one-way matches are labelled.
+- **Discover** — matches, a searchable directory filtered by category, and an Asks board for specific requests.
+- **Swaps** — propose one skill each way with a short message. The other person accepts or declines. One open swap per pair.
+- **Chat** — opens only when a swap is accepted, visible only to its two members, delivered in realtime.
+- **Sessions** — suggest a time, the other person confirms or suggests another. Stored as an absolute instant and shown in each person's timezone. Bring your own meeting link. Calendar (.ics) download.
+- **Progress** — sessions taught and learned per swap and per profile. Learners can vouch for teachers after a completed session.
+- **Notifications** — stored, with read state, for proposals, answers, messages and session changes.
+- **Privacy and safety** — hide your profile from Discover, block, report, delete your account.
 
-## What is SkillBridge?
+There are no payments, credits, ratings out of five, leaderboards or video calls. See `REDESIGN_PLAN.md` for why.
 
-SkillBridge operates on a simple philosophy: everyone is simultaneously a teacher in some domains and a student in others. The platform algorithmically connects users with complementary skill profiles and provides the communication infrastructure to support real, ongoing learning relationships.
+## Stack
 
-Instead of paying for courses or waiting for institutional access, users swap skills directly — teach JavaScript, learn Guitar. Teach Spanish, learn Photography. The currency is reciprocal expertise.
+React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query, Radix primitives, Sonner, Vaul and cmdk on the front end. Supabase (Postgres, Auth, Storage, Realtime) on the back end. Deployed as a static site on Vercel.
 
----
+Every rule that matters lives in Postgres: row level security on every table, and `security definer` functions for anything with a business rule (`propose_swap`, `respond_to_swap`, `propose_session`, `add_vouch` and so on). The browser uses the publishable key only.
 
-## Features
-
-- **Authentication** — Email/password and Google OAuth via Supabase Auth
-- **Skill Profile Setup** — Multi-step onboarding to define skills you teach and want to learn
-- **User Matching** — Discover users with complementary skill profiles
-- **Swap Requests** — Send, receive, accept, and manage skill exchange requests
-- **Real-Time Chat** — Live messaging powered by Supabase Realtime WebSockets
-- **Session Scheduling** — Plan and track learning sessions with matched users
-- **Dashboard** — Live stats, active requests, and recent activity
-- **Notifications** — Instant updates on requests, messages, and session changes
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + TypeScript |
-| Styling | Tailwind CSS |
-| Build Tool | Vite |
-| Backend | Supabase (PostgreSQL + Auth + Realtime) |
-| Database | PostgreSQL with Row Level Security |
-| Auth | JWT + OAuth 2.0 (Google) |
-| Deployment | Vercel |
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- A Supabase project
-
-### Installation
+## Run it locally
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/skillbridge.git
-cd skillbridge
 npm install
 ```
 
-### Environment Variables
-
-Create a `.env` file in the root:
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### Development
+Copy `.env.example` to `.env` and fill in your Supabase project URL and publishable key, then:
 
 ```bash
 npm run dev
 ```
 
-### Production Build
+The app runs at `http://localhost:5199`.
 
-```bash
-npm run build
-```
+## Scripts
 
----
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the dev server |
+| `npm run typecheck` | Type check with `tsc` |
+| `npm run build` | Type check, then build to `dist/` |
+| `npm run test:e2e` | Run the two-user end-to-end test against the configured Supabase project |
 
-## Project Structure
+The end-to-end test signs in as three test accounts and exercises matching, proposals, chat (including realtime delivery), sessions, Asks, privacy, blocking and anonymous access through the same HTTP API the app uses. It needs a `.env.test` file with `E2E_PASSWORD`, `E2E_ALICE`, `E2E_BEN` and `E2E_CARA`. That file is git-ignored.
+
+## Database
+
+Migrations are in `supabase/migrations/` and are the source of truth for the schema, policies and functions. The tables from the first version of the app (`swap_requests`, `conversations`, `messages`, `sessions`) were moved to a `legacy` schema that the API cannot reach; they have not been dropped.
+
+## Deploying
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's environment variables. `.env` is no longer committed.
+
+In Supabase → Authentication → URL Configuration, the redirect allow-list must include `<your-site>/auth/callback` and `<your-site>/reset-password`.
+
+## Project structure
 
 ```
 src/
-├── app/
-│   ├── components/     # Reusable UI components
-│   ├── contexts/       # Auth and sidebar context providers
-│   ├── layouts/        # AppLayout and AuthLayout
-│   └── pages/          # Route-level page components
-├── hooks/              # Custom React hooks
-├── lib/                # Supabase client
-├── services/           # API service functions
-├── types/              # TypeScript table types
-└── utils/              # Helper utilities
+  App.tsx            routes and guards
+  lib/               supabase client, api calls, query hooks, auth, types, utils
+  components/        shared UI (kit, modal, skill picker, people, sessions, profile view)
+  components/ui/     Radix-based primitives
+  layouts/           signed-in app shell
+  pages/             one file per screen
+scripts/e2e.mjs      end-to-end test
+supabase/migrations  schema, functions, policies
 ```
-
----
-
-## Architecture Highlights
-
-- **Single redirect source** — All onboarding redirects are handled in one place, eliminating loops
-- **PKCE OAuth flow** — Secure Google login with proper code exchange via `exchangeCodeForSession`
-- **Row Level Security** — All database access rules enforced at the PostgreSQL level
-- **Realtime subscriptions** — Dashboard and chat update live via WebSocket without page refreshes
-- **Safe profile creation** — Profiles are only inserted once; existing users are never overwritten
-
----
-
-## Status
-
-⚠️ Currently under active development. Some features may be incomplete or subject to change.
-
----
 
 ## License
 
