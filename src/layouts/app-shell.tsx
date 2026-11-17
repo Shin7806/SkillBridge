@@ -169,8 +169,8 @@ function SessionsPanel({ open, onClose, meId }: { open: boolean; onClose: () => 
       aria-hidden={!open}
       inert={!open}
       className={cn(
-        "fixed bottom-0 right-0 top-14 z-40 flex w-full flex-col border-l border-border bg-background shadow-[-24px_0_48px_-24px_rgb(0_0_0/0.6)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:w-[380px]",
-        open ? "translate-x-0" : "translate-x-full",
+        "fixed bottom-0 right-0 top-14 z-40 flex w-full flex-col border-l border-border bg-background transition-[transform,box-shadow,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:w-[380px]",
+        open ? "translate-x-0 shadow-[-24px_0_48px_-24px_rgb(0_0_0/0.6)]" : "invisible translate-x-full",
       )}
     >
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border pl-4 pr-2">
@@ -246,11 +246,6 @@ export default function AppShell() {
 
   const panel = useMemo(() => ({ open: panelOpen, setOpen: setPanelOpen, toggle: () => setPanelOpen((o) => !o) }), [panelOpen]);
   const pushContent = panelOpen && wide;
-  // Lets the scrollbar gutter carry the top bar's bottom line.
-  useEffect(() => {
-    document.documentElement.classList.add("app-chrome");
-    return () => document.documentElement.classList.remove("app-chrome");
-  }, []);
 
   return (
     <SessionsPanelContext.Provider value={panel}>

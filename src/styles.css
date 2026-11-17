@@ -84,17 +84,15 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
-    /* Reserve the scrollbar's space so pages don't jump sideways when content grows past the fold. */
-    scrollbar-gutter: stable;
+    /* No page-level scrollbar: nothing to reserve, so pages never jump sideways and no strip shows. */
+    scrollbar-width: none;
     overflow-x: clip;
-    /* Paint the reserved gutter like the page, carrying the top bar's bottom line across it. */
     background: var(--background);
-    scrollbar-color: var(--border) var(--background);
   }
-  html.app-chrome {
-    background: linear-gradient(to bottom, transparent 55px, var(--border) 55px, var(--border) 56px, transparent 56px) fixed, var(--background);
+  html::-webkit-scrollbar {
+    display: none;
   }
-  /* The gutter is already reserved, so dialogs mustn't add their own scrollbar compensation. */
+  /* There is no page scrollbar, so dialogs mustn't add their own scrollbar compensation. */
   html body[data-scroll-locked] {
     margin-right: 0 !important;
     padding-right: 0 !important;
