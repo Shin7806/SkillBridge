@@ -1,4 +1,4 @@
-// The small set of building blocks every screen is made from.
+// The small set of building blocks every screen is made from. Dense, quiet, consistent.
 import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { ArrowLeftRight, Loader2, type LucideIcon } from "lucide-react";
@@ -6,26 +6,27 @@ import { avatarSrc, cn, initials } from "@/lib/utils";
 
 // ── Button ───────────────────────────────────────────────────────────────────
 type Variant = "primary" | "learn" | "secondary" | "outline" | "ghost" | "danger";
-type Size = "sm" | "md" | "lg" | "icon";
+type Size = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:brightness-110 font-semibold",
-  learn: "bg-learn text-learn-foreground hover:brightness-110 font-semibold",
-  secondary: "bg-secondary text-foreground border border-border hover:bg-accent",
-  outline: "border border-border text-foreground hover:bg-accent",
-  ghost: "text-muted-foreground hover:text-foreground hover:bg-accent",
+  primary: "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-105",
+  learn: "bg-learn text-learn-foreground hover:brightness-105",
+  secondary: "bg-raised text-foreground ring-1 ring-inset ring-border hover:bg-accent hover:ring-foreground/15",
+  outline: "text-foreground ring-1 ring-inset ring-border hover:bg-accent",
+  ghost: "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
   danger: "bg-destructive/12 text-destructive hover:bg-destructive/20",
 };
 const SIZES: Record<Size, string> = {
-  sm: "h-9 px-3 text-sm gap-1.5 rounded-lg",
-  md: "h-11 px-4 text-sm gap-2 rounded-xl",
-  lg: "h-12 px-6 text-base gap-2 rounded-xl",
-  icon: "size-11 rounded-xl",
+  sm: "h-8 gap-1.5 rounded-md px-2.5 text-[13px] [&_svg]:size-3.5",
+  md: "h-9 gap-2 rounded-lg px-3.5 text-sm",
+  lg: "h-11 gap-2 rounded-lg px-5 text-[15px]",
+  icon: "size-9 rounded-lg",
+  "icon-sm": "size-8 rounded-md [&_svg]:size-4",
 };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "md", className?: string) {
   return cn(
-    "inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium transition-[background-color,filter,transform,color] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+    "inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium transition-[background-color,filter,transform,color,box-shadow] duration-150 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
     VARIANTS[variant],
     SIZES[size],
     className,
@@ -56,7 +57,7 @@ export function ButtonLink({ variant, size, className, ...props }: LinkProps & {
 
 // ── Form fields ──────────────────────────────────────────────────────────────
 const CONTROL =
-  "w-full rounded-xl border border-input bg-background px-3.5 text-foreground placeholder:text-muted-foreground/70 transition-colors focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60 aria-[invalid=true]:border-destructive";
+  "w-full rounded-lg border border-input bg-background px-3 text-foreground placeholder:text-muted-foreground/60 transition-[border-color,box-shadow] duration-150 hover:border-foreground/20 focus-visible:border-primary/70 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/15 disabled:opacity-60 aria-[invalid=true]:border-destructive";
 
 interface FieldShell {
   label: string;
@@ -69,19 +70,19 @@ function FieldWrap({ id, label, hint, error, optional, children, counter }: Fiel
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
+        <label htmlFor={id} className="text-[13px] font-medium text-foreground">
           {label}
           {optional && <span className="ml-1.5 font-normal text-muted-foreground">optional</span>}
         </label>
-        {counter && <span className="text-xs tabular-nums text-muted-foreground">{counter}</span>}
+        {counter && <span className="text-[11px] tabular-nums text-muted-foreground">{counter}</span>}
       </div>
       {children}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
+        <p id={`${id}-error`} role="alert" className="text-[13px] text-destructive">
           {error}
         </p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-sm text-muted-foreground">
+        <p id={`${id}-hint`} className="text-[13px] text-muted-foreground">
           {hint}
         </p>
       ) : null}
@@ -101,7 +102,7 @@ export const TextField = forwardRef<HTMLInputElement, FieldShell & InputHTMLAttr
   return (
     <FieldWrap id={id} {...shell}>
       <div className="relative">
-        <input ref={ref} id={id} aria-invalid={!!error} aria-describedby={describedBy(id, shell)} className={cn(CONTROL, "h-11", trailing && "pr-12", className)} {...props} />
+        <input ref={ref} id={id} aria-invalid={!!error} aria-describedby={describedBy(id, shell)} className={cn(CONTROL, "h-10 sm:h-9", trailing && "pr-11", className)} {...props} />
         {trailing && <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>}
       </div>
     </FieldWrap>
@@ -115,7 +116,7 @@ export function TextArea({ label, hint, error, optional, className, id: idProp, 
   const counter = maxLength ? `${String(value ?? "").length}/${maxLength}` : undefined;
   return (
     <FieldWrap id={id} counter={counter} {...shell}>
-      <textarea id={id} value={value} maxLength={maxLength} aria-invalid={!!error} aria-describedby={describedBy(id, shell)} className={cn(CONTROL, "min-h-24 resize-y py-2.5 leading-relaxed", className)} {...props} />
+      <textarea id={id} value={value} maxLength={maxLength} aria-invalid={!!error} aria-describedby={describedBy(id, shell)} className={cn(CONTROL, "min-h-20 resize-y py-2 leading-relaxed", className)} {...props} />
     </FieldWrap>
   );
 }
@@ -126,7 +127,11 @@ export function SelectField({ label, hint, error, optional, className, id: idPro
   const shell = { label, hint, error, optional };
   return (
     <FieldWrap id={id} {...shell}>
-      <select id={id} aria-invalid={!!error} aria-describedby={describedBy(id, shell)} className={cn(CONTROL, "h-11 appearance-none bg-[length:16px] bg-[right_0.75rem_center] bg-no-repeat pr-9", className)}
+      <select
+        id={id}
+        aria-invalid={!!error}
+        aria-describedby={describedBy(id, shell)}
+        className={cn(CONTROL, "h-10 appearance-none bg-[length:14px] bg-[right_0.65rem_center] bg-no-repeat pr-8 sm:h-9", className)}
         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239da3ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")` }}
         {...props}
       >
@@ -139,14 +144,14 @@ export function SelectField({ label, hint, error, optional, className, id: idPro
 export function FormError({ children }: { children?: ReactNode }) {
   if (!children) return null;
   return (
-    <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive animate-in fade-in-0 duration-200">
       {children}
     </div>
   );
 }
 
 // ── Avatar ───────────────────────────────────────────────────────────────────
-const AVATAR_SIZES = { xs: "size-7 text-[10px]", sm: "size-9 text-xs", md: "size-11 text-sm", lg: "size-16 text-lg", xl: "size-24 text-2xl" };
+const AVATAR_SIZES = { xs: "size-6 text-[9px]", sm: "size-8 text-[11px]", md: "size-10 text-[13px]", lg: "size-14 text-base", xl: "size-20 text-xl" };
 
 export function Avatar({ name, src, size = "md", className }: { name?: string | null; src?: string | null; size?: keyof typeof AVATAR_SIZES; className?: string }) {
   const url = avatarSrc(src);
@@ -162,27 +167,25 @@ export function Avatar({ name, src, size = "md", className }: { name?: string | 
 // ── Skill chip ───────────────────────────────────────────────────────────────
 export function SkillChip({ children, tone = "neutral", strong, className }: { children: ReactNode; tone?: "teach" | "learn" | "neutral"; strong?: boolean; className?: string }) {
   const tones = {
-    teach: strong ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary ring-1 ring-inset ring-primary/20",
-    learn: strong ? "bg-learn text-learn-foreground" : "bg-learn/10 text-learn ring-1 ring-inset ring-learn/20",
+    teach: strong ? "bg-primary text-primary-foreground" : "bg-primary/[0.09] text-primary ring-1 ring-inset ring-primary/15",
+    learn: strong ? "bg-learn text-learn-foreground" : "bg-learn/[0.09] text-learn ring-1 ring-inset ring-learn/15",
     neutral: "bg-raised text-muted-foreground ring-1 ring-inset ring-border",
   };
-  return <span className={cn("inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-xs font-medium", tones[tone], className)}>{children}</span>;
+  return <span className={cn("inline-flex max-w-full items-center gap-1 truncate rounded-md px-2 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
 }
 
-// ── Swap strip: the signature element. Gold = teach, teal = learn, joined in the middle. ──
-export function SwapStrip({ teach, learn, teachLabel = "You teach", learnLabel = "You learn", className }: { teach: string; learn: string; teachLabel?: string; learnLabel?: string; className?: string }) {
+// ── Swap indicator: a quiet "teach ⇄ learn" pair. Gold = teach, teal = learn. ──
+export function SwapStrip({ teach, learn, teachLabel = "Teach", learnLabel = "Learn", className }: { teach: string; learn: string; teachLabel?: string; learnLabel?: string; className?: string }) {
   return (
-    <div className={cn("relative grid grid-cols-2 overflow-hidden rounded-xl ring-1 ring-inset ring-border", className)}>
-      <div className="min-w-0 bg-primary/[0.09] py-2.5 pl-3.5 pr-6">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-primary/75">{teachLabel}</p>
-        <p className="truncate font-semibold text-primary">{teach}</p>
-      </div>
-      <div className="min-w-0 bg-learn/[0.09] py-2.5 pl-6 pr-3.5 text-right">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-learn/75">{learnLabel}</p>
-        <p className="truncate font-semibold text-learn">{learn}</p>
-      </div>
-      <span className="absolute left-1/2 top-1/2 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-background text-muted-foreground ring-1 ring-border" aria-hidden>
-        <ArrowLeftRight className="size-3.5" />
+    <div className={cn("flex min-w-0 flex-wrap items-center gap-1.5 text-[13px]", className)}>
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-primary/[0.09] px-2 py-1 ring-1 ring-inset ring-primary/15">
+        <span className="text-[11px] text-primary/70">{teachLabel}</span>
+        <span className="truncate font-medium text-primary">{teach}</span>
+      </span>
+      <ArrowLeftRight className="size-3.5 shrink-0 text-muted-foreground/70" aria-label="in exchange for" />
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-learn/[0.09] px-2 py-1 ring-1 ring-inset ring-learn/15">
+        <span className="text-[11px] text-learn/70">{learnLabel}</span>
+        <span className="truncate font-medium text-learn">{learn}</span>
       </span>
     </div>
   );
@@ -190,15 +193,15 @@ export function SwapStrip({ teach, learn, teachLabel = "You teach", learnLabel =
 
 // ── Layout helpers ───────────────────────────────────────────────────────────
 export function Card({ className, children, as: Tag = "div" }: { className?: string; children: ReactNode; as?: "div" | "section" | "article" | "li" }) {
-  return <Tag className={cn("rounded-2xl border border-border bg-card", className)}>{children}</Tag>;
+  return <Tag className={cn("rounded-xl border border-border bg-card", className)}>{children}</Tag>;
 }
 
 export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1 max-w-prose text-muted-foreground">{description}</p>}
+        <h1 className="text-xl sm:text-2xl">{title}</h1>
+        {description && <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>}
       </div>
       {action}
     </header>
@@ -207,25 +210,41 @@ export function PageHeader({ title, description, action }: { title: string; desc
 
 export function Page({ children, width = "default" }: { children: ReactNode; width?: "narrow" | "default" | "wide" }) {
   const widths = { narrow: "max-w-2xl", default: "max-w-4xl", wide: "max-w-6xl" };
-  return <div className={cn("mx-auto w-full px-4 pb-28 pt-6 sm:px-6 sm:pt-8 md:pb-12", widths[width])}>{children}</div>;
+  return <div className={cn("mx-auto w-full px-4 pb-28 pt-6 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 sm:px-6 sm:pt-8 md:pb-12", widths[width])}>{children}</div>;
+}
+
+/** A labelled group inside a page: small heading, optional count and action. */
+export function Section({ title, count, action, children, className }: { title: string; count?: number; action?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={className}>
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <h2 className="text-[13px] font-medium tracking-normal text-muted-foreground">
+          {title}
+          {count !== undefined && <span className="ml-1.5 tabular-nums text-muted-foreground/60">{count}</span>}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function EmptyState({ icon: Icon, title, children, action }: { icon: LucideIcon; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-      <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-raised text-muted-foreground">
-        <Icon className="size-5" aria-hidden />
+    <div className="flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
+      <span className="mb-3 grid size-10 place-items-center rounded-lg bg-raised text-muted-foreground ring-1 ring-border">
+        <Icon className="size-[18px]" aria-hidden />
       </span>
-      <h2 className="font-sans text-base font-semibold tracking-normal">{title}</h2>
-      {children && <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{children}</p>}
-      {action && <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div>}
+      <h2 className="text-[15px]">{title}</h2>
+      {children && <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">{children}</p>}
+      {action && <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div>}
     </div>
   );
 }
 
 export function Spinner({ label = "Loading" }: { label?: string }) {
   return (
-    <div role="status" className="flex min-h-40 items-center justify-center gap-2.5 text-sm text-muted-foreground">
+    <div role="status" className="flex min-h-32 items-center justify-center gap-2 text-[13px] text-muted-foreground">
       <Loader2 className="size-4 animate-spin" aria-hidden />
       {label}…
     </div>
@@ -234,9 +253,9 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
 
 export function LoadError({ error, retry }: { error: unknown; retry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 px-6 py-10 text-center">
+    <div role="alert" className="flex flex-col items-center gap-2.5 rounded-xl border border-destructive/25 bg-destructive/5 px-6 py-8 text-center">
       <p className="text-sm text-foreground">We couldn't load this.</p>
-      <p className="max-w-sm text-sm text-muted-foreground">{(error as Error | null)?.message || "Check your connection and try again."}</p>
+      <p className="max-w-sm text-[13px] text-muted-foreground">{(error as Error | null)?.message || "Check your connection and try again."}</p>
       {retry && (
         <Button variant="secondary" size="sm" onClick={retry}>
           Try again
@@ -248,9 +267,9 @@ export function LoadError({ error, retry }: { error: unknown; retry?: () => void
 
 export function SkeletonCards({ count = 3, className }: { count?: number; className?: string }) {
   return (
-    <div className={cn("grid gap-4", className)} aria-hidden>
+    <div className={cn("grid gap-3", className)} aria-hidden>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-card" />
+        <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-card" style={{ animationDelay: `${i * 120}ms` }} />
       ))}
     </div>
   );
@@ -258,20 +277,31 @@ export function SkeletonCards({ count = 3, className }: { count?: number; classN
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "teach" | "learn" | "success" | "danger" }) {
   const tones = {
-    neutral: "bg-raised text-muted-foreground",
+    neutral: "bg-raised text-muted-foreground ring-1 ring-inset ring-border",
     teach: "bg-primary/12 text-primary",
     learn: "bg-learn/12 text-learn",
     success: "bg-success/12 text-success",
     danger: "bg-destructive/12 text-destructive",
   };
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>;
+  return <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium", tones[tone])}>{children}</span>;
 }
 
-export function Logo({ className }: { className?: string }) {
+/** Small unread/pending counter. */
+export function CountDot({ count, className }: { count?: number; className?: string }) {
+  if (!count) return null;
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <img src="/logo.png" alt="" className="size-8 object-contain" />
-      <span className="font-display text-lg font-bold tracking-tight">SkillBridge</span>
+    <span className={cn("grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-primary-foreground animate-in zoom-in-50 duration-200", className)}>
+      {count > 9 ? "9+" : count}
+      <span className="sr-only"> waiting for you</span>
+    </span>
+  );
+}
+
+export function Logo({ className, compact }: { className?: string; compact?: boolean }) {
+  return (
+    <span className={cn("inline-flex items-center gap-2", className)}>
+      <img src="/logo.png" alt="" className="h-6 w-auto object-contain" />
+      {!compact && <span className="text-[15px] font-semibold tracking-tight">SkillBridge</span>}
     </span>
   );
 }

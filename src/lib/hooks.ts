@@ -96,8 +96,17 @@ const NOTIFICATION_TEXT: Record<NotificationType, string> = {
 
 export function describeNotification(n: Pick<AppNotification, "type" | "swap_id" | "actor">) {
   const who = displayName(n.actor?.full_name);
-  const href = !n.swap_id ? "/home" : n.type === "swap_proposed" || n.type === "swap_declined" ? "/swaps" : `/swaps/${n.swap_id}`;
-  return { who, text: NOTIFICATION_TEXT[n.type] ?? "sent you an update", href: n.type === "vouch_received" ? "/me" : href };
+  const href =
+    n.type === "vouch_received"
+      ? "/profile"
+      : !n.swap_id
+        ? "/home"
+        : n.type === "message"
+          ? `/messages/${n.swap_id}`
+          : n.type === "swap_proposed" || n.type === "swap_declined"
+            ? "/swaps"
+            : `/swaps/${n.swap_id}`;
+  return { who, text: NOTIFICATION_TEXT[n.type] ?? "sent you an update", href };
 }
 
 // ── Realtime: one channel per signed-in user keeps every list fresh ──────────

@@ -4,6 +4,8 @@ import { Loader2 } from "lucide-react";
 import { Button } from "./components/kit";
 import { SIGNED_OUT_FLAG, signOut } from "./lib/api";
 import { useAuth } from "./lib/auth";
+import { useSessionsPanel } from "./lib/sessions-panel";
+import { useEffect } from "react";
 
 const Landing = lazy(() => import("./pages/landing"));
 const AppShell = lazy(() => import("./layouts/app-shell"));
@@ -13,9 +15,9 @@ const Discover = lazy(() => import("./pages/discover"));
 const PersonPage = lazy(() => import("./pages/person"));
 const Swaps = lazy(() => import("./pages/swaps"));
 const SwapDetail = lazy(() => import("./pages/swap-detail"));
-const Sessions = lazy(() => import("./pages/sessions"));
+const Messages = lazy(() => import("./pages/messages"));
 const Notifications = lazy(() => import("./pages/notifications"));
-const Me = lazy(() => import("./pages/me"));
+const Profile = lazy(() => import("./pages/me"));
 const Settings = lazy(() => import("./pages/settings"));
 const NotFound = lazy(() => import("./pages/not-found"));
 const auth = () => import("./pages/auth");
@@ -88,6 +90,13 @@ function PublicOnly() {
   return user ? <Navigate to={from && from.startsWith("/") ? from : "/home"} replace /> : <Outlet />;
 }
 
+/** /sessions is a panel now: open it over Home. */
+function OpenSessions() {
+  const { setOpen } = useSessionsPanel();
+  useEffect(() => setOpen(true), [setOpen]);
+  return <Navigate to="/home" replace />;
+}
+
 function OldProfileRedirect() {
   const { id } = useParams();
   return <Navigate to={`/people/${id}`} replace />;
@@ -122,9 +131,11 @@ export default function App() {
               <Route path="/people/:id" element={<PersonPage />} />
               <Route path="/swaps" element={<Swaps />} />
               <Route path="/swaps/:id" element={<SwapDetail />} />
-              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:id" element={<Messages />} />
+              <Route path="/sessions" element={<OpenSessions />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/me" element={<Me />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
@@ -135,9 +146,9 @@ export default function App() {
         <Route path="/matching" element={<Navigate to="/discover" replace />} />
         <Route path="/requests/*" element={<Navigate to="/swaps" replace />} />
         <Route path="/request" element={<Navigate to="/discover?tab=asks" replace />} />
-        <Route path="/chat/*" element={<Navigate to="/swaps" replace />} />
+        <Route path="/chat/*" element={<Navigate to="/messages" replace />} />
+        <Route path="/me" element={<Navigate to="/profile" replace />} />
         <Route path="/setup" element={<Navigate to="/welcome" replace />} />
-        <Route path="/profile" element={<Navigate to="/me" replace />} />
         <Route path="/profile/:id" element={<OldProfileRedirect />} />
 
         <Route path="*" element={<NotFound />} />

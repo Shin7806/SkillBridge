@@ -1,62 +1,60 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeftRight, CalendarDays, ChevronRight } from "lucide-react";
-import { Avatar, Badge, Button, ButtonLink, Card, EmptyState, LoadError, Page, PageHeader, SkeletonCards, SwapStrip } from "@/components/kit";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeftRight, CalendarDays, ChevronRight, MessageSquare } from "lucide-react";
+import { Avatar, Badge, Button, ButtonLink, buttonClass, EmptyState, LoadError, Page, PageHeader, Section, SkeletonCards, SwapStrip } from "@/components/kit";
 import { ConfirmDialog } from "@/components/modal";
 import * as api from "@/lib/api";
 import { useAction, useDocumentTitle, useSwaps } from "@/lib/hooks";
 import type { Swap } from "@/lib/types";
-import { displayName, firstName, formatDateTime, timeAgo } from "@/lib/utils";
+import { cn, displayName, firstName, formatDateTime, timeAgo } from "@/lib/utils";
 
 const SWAP_KEYS = ["swaps", "swap", "matches", "notifications"];
 
-function Who({ swap, meta }: { swap: Swap; meta: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Avatar name={swap.other.full_name} src={swap.other.avatar_url} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">
-          <Link to={`/people/${swap.other.id}`} className="hover:underline">
-            {displayName(swap.other.full_name)}
-          </Link>
-        </p>
-        <p className="truncate text-sm text-muted-foreground">{meta}</p>
-      </div>
-    </div>
-  );
-}
-
 function Proposal({ swap }: { swap: Swap }) {
+  const navigate = useNavigate();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const name = firstName(swap.other.full_name);
   const respond = useAction((accept: boolean) => api.respondToSwap(swap.id, accept), {
     invalidate: SWAP_KEYS,
     success: (_) => undefined,
+    onSuccess: (_, accept) => accept && navigate(`/swaps/${swap.id}`),
   });
   const cancel = useAction(() => api.cancelSwap(swap.id), { invalidate: SWAP_KEYS, success: "Proposal cancelled", onSuccess: () => setConfirmCancel(false) });
 
   return (
-    <Card as="li" className="space-y-4 p-5">
-      <Who swap={swap} meta={swap.i_proposed ? `Sent ${timeAgo(swap.created_at)} · waiting for ${name}` : `Proposed ${timeAgo(swap.created_at)}`} />
-      <SwapStrip teach={swap.i_teach.name} learn={swap.i_learn.name} />
-      {swap.message && <blockquote className="whitespace-pre-line border-l-2 border-border pl-3.5 text-sm text-muted-foreground">{swap.message}</blockquote>}
-      {swap.cadence && <p className="text-sm text-muted-foreground">Suggested rhythm: {swap.cadence}</p>}
-      <div className="flex flex-wrap justify-end gap-2">
-        {swap.i_proposed ? (
-          <Button variant="secondary" size="sm" onClick={() => setConfirmCancel(true)}>
-            Cancel proposal
-          </Button>
-        ) : (
-          <>
-            <Button variant="ghost" size="sm" loading={respond.isPending && respond.variables === false} disabled={respond.isPending} onClick={() => respond.mutate(false)}>
-              Decline
+    <li className={cn("rounded-xl border bg-card p-4 animate-in fade-in-0 duration-300", swap.i_proposed ? "border-border" : "border-primary/30")}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link to={`/people/${swap.other.id}`} className="flex min-w-0 flex-1 items-center gap-3 transition-opacity hover:opacity-80">
+          <Avatar name={swap.other.full_name} src={swap.other.avatar_url} size="sm" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">{displayName(swap.other.full_name)}</span>
+            <span className="block truncate text-[12px] text-muted-foreground">{swap.i_proposed ? `Sent ${timeAgo(swap.created_at)} · waiting for ${name}` : `Proposed ${timeAgo(swap.created_at)}`}</span>
+          </span>
+        </Link>
+        <div className="flex gap-1.5">
+          {swap.i_proposed ? (
+            <Button variant="ghost" size="sm" onClick={() => setConfirmCancel(true)}>
+              Cancel
             </Button>
-            <Button size="sm" loading={respond.isPending && respond.variables === true} disabled={respond.isPending} onClick={() => respond.mutate(true)}>
-              Accept swap
-            </Button>
-          </>
-        )}
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" loading={respond.isPending && respond.variables === false} disabled={respond.isPending} onClick={() => respond.mutate(false)}>
+                Decline
+              </Button>
+              <Button size="sm" loading={respond.isPending && respond.variables === true} disabled={respond.isPending} onClick={() => respond.mutate(true)}>
+                Accept
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+      <SwapStrip teach={swap.i_teach.name} learn={swap.i_learn.name} teachLabel="You teach" learnLabel="You learn" className="mt-3" />
+      {(swap.message || swap.cadence) && (
+        <div className="mt-3 space-y-1 border-l-2 border-border pl-3 text-[13px] text-muted-foreground">
+          {swap.message && <p className="whitespace-pre-line text-foreground/85">{swap.message}</p>}
+          {swap.cadence && <p>Rhythm: {swap.cadence}</p>}
+        </div>
+      )}
       <ConfirmDialog
         open={confirmCancel}
         onOpenChange={setConfirmCancel}
@@ -67,38 +65,39 @@ function Proposal({ swap }: { swap: Swap }) {
         loading={cancel.isPending}
         onConfirm={() => cancel.mutate(undefined)}
       />
-    </Card>
+    </li>
   );
 }
 
 function ActiveSwap({ swap }: { swap: Swap }) {
-  const preview = swap.last_message ? swap.last_message.body : "No messages yet. Say hello.";
   return (
-    <li>
-      <Link to={`/swaps/${swap.id}`} className="block rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground/20">
-        <div className="flex items-center gap-3">
-          <Avatar name={swap.other.full_name} src={swap.other.avatar_url} />
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 font-medium">
-              <span className="truncate">{displayName(swap.other.full_name)}</span>
-              {swap.unread_count > 0 && <Badge tone="teach">{swap.unread_count} new</Badge>}
-            </p>
-            <p className={swap.unread_count > 0 ? "truncate text-sm text-foreground" : "truncate text-sm text-muted-foreground"}>{preview}</p>
-          </div>
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        </div>
-        <SwapStrip teach={swap.i_teach.name} learn={swap.i_learn.name} className="mt-4" />
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarDays className="size-3.5" aria-hidden />
-            {swap.next_session_at ? `Next session ${formatDateTime(swap.next_session_at)}` : "No session booked"}
-          </span>
-          {swap.sessions_to_answer > 0 && <span className="text-primary">{swap.sessions_to_answer} session to confirm</span>}
-          <span>
+    <li className="group relative flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-foreground/[0.025] sm:flex-row sm:items-center">
+      <Link to={`/swaps/${swap.id}`} className="absolute inset-0 rounded-[inherit]" aria-label={`Open swap with ${displayName(swap.other.full_name)}`} />
+      <div className="flex min-w-0 items-center gap-3 sm:w-52">
+        <Avatar name={swap.other.full_name} src={swap.other.avatar_url} size="sm" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{displayName(swap.other.full_name)}</span>
+          <span className="block truncate text-[12px] text-muted-foreground">
             Taught {swap.sessions_given} · Learned {swap.sessions_received}
           </span>
-        </div>
-      </Link>
+        </span>
+      </div>
+      <SwapStrip teach={swap.i_teach.name} learn={swap.i_learn.name} className="min-w-0 flex-1" />
+      <div className="flex items-center gap-2 text-[12px] text-muted-foreground sm:w-56 sm:justify-end">
+        {swap.sessions_to_answer > 0 ? (
+          <Badge tone="teach">{swap.sessions_to_answer} to confirm</Badge>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 truncate">
+            <CalendarDays className="size-3.5 shrink-0" aria-hidden />
+            {swap.next_session_at ? formatDateTime(swap.next_session_at) : "No session booked"}
+          </span>
+        )}
+        <Link to={`/messages/${swap.id}`} className={buttonClass("ghost", "icon-sm", "relative z-10 ml-auto sm:ml-0")} aria-label={`Message ${firstName(swap.other.full_name)}`} title="Message">
+          <MessageSquare />
+          {swap.unread_count > 0 && <span className="absolute right-1 top-1 size-2 rounded-full bg-primary ring-2 ring-card" aria-hidden />}
+        </Link>
+        <ChevronRight className="hidden size-4 transition-transform duration-150 group-hover:translate-x-0.5 sm:block" aria-hidden />
+      </div>
     </li>
   );
 }
@@ -109,9 +108,10 @@ export default function Swaps() {
   useDocumentTitle("Swaps");
   const swaps = useSwaps();
   const [showPast, setShowPast] = useState(false);
+  const header = <PageHeader title="Swaps" description="Each swap is one agreement with one person: one skill each way." />;
 
-  if (swaps.isPending) return <Page><PageHeader title="Swaps" /><SkeletonCards /></Page>;
-  if (swaps.isError) return <Page><PageHeader title="Swaps" /><LoadError error={swaps.error} retry={swaps.refetch} /></Page>;
+  if (swaps.isPending) return <Page>{header}<SkeletonCards /></Page>;
+  if (swaps.isError) return <Page>{header}<LoadError error={swaps.error} retry={swaps.refetch} /></Page>;
 
   const received = swaps.data.filter((s) => s.status === "proposed" && !s.i_proposed);
   const sent = swaps.data.filter((s) => s.status === "proposed" && s.i_proposed);
@@ -120,71 +120,62 @@ export default function Swaps() {
 
   return (
     <Page>
-      <PageHeader title="Swaps" description="Each swap is one agreement with one person: its chat, its sessions, its progress." />
-
+      {header}
       {swaps.data.length === 0 ? (
         <EmptyState icon={ArrowLeftRight} title="No swaps yet" action={<ButtonLink to="/discover">Find someone to swap with</ButtonLink>}>
           A swap starts when you propose one from someone's profile, or when someone proposes one to you.
         </EmptyState>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-7">
           {received.length > 0 && (
-            <section aria-labelledby="received">
-              <h2 id="received" className="mb-3 font-sans text-base font-semibold tracking-normal">
-                Waiting for your answer <span className="font-normal text-muted-foreground">· {received.length}</span>
-              </h2>
-              <ul className="space-y-3">
+            <Section title="Waiting for your answer" count={received.length}>
+              <ul className="space-y-2">
                 {received.map((s) => (
                   <Proposal key={s.id} swap={s} />
                 ))}
               </ul>
-            </section>
+            </Section>
           )}
 
-          <section aria-labelledby="active">
-            <h2 id="active" className="mb-3 font-sans text-base font-semibold tracking-normal">
-              Active <span className="font-normal text-muted-foreground">· {active.length}</span>
-            </h2>
+          <Section title="Active" count={active.length}>
             {active.length ? (
-              <ul className="space-y-3">
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
                 {active.map((s) => (
                   <ActiveSwap key={s.id} swap={s} />
                 ))}
               </ul>
             ) : (
-              <p className="rounded-2xl border border-dashed border-border px-5 py-6 text-sm text-muted-foreground">No active swaps. Accepted proposals appear here with their chat and sessions.</p>
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">No active swaps. Accepted proposals appear here.</p>
             )}
-          </section>
+          </Section>
 
           {sent.length > 0 && (
-            <section aria-labelledby="sent">
-              <h2 id="sent" className="mb-3 font-sans text-base font-semibold tracking-normal">
-                Sent <span className="font-normal text-muted-foreground">· {sent.length}</span>
-              </h2>
-              <ul className="space-y-3">
+            <Section title="Sent" count={sent.length}>
+              <ul className="space-y-2">
                 {sent.map((s) => (
                   <Proposal key={s.id} swap={s} />
                 ))}
               </ul>
-            </section>
+            </Section>
           )}
 
           {past.length > 0 && (
-            <section aria-labelledby="past">
-              <button type="button" id="past" aria-expanded={showPast} onClick={() => setShowPast((v) => !v)} className="flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-                <ChevronRight className={showPast ? "size-4 rotate-90 transition-transform" : "size-4 transition-transform"} aria-hidden />
-                Past swaps · {past.length}
+            <section>
+              <button type="button" aria-expanded={showPast} onClick={() => setShowPast((v) => !v)} className="flex h-8 items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <ChevronRight className={cn("size-3.5 transition-transform duration-200", showPast && "rotate-90")} aria-hidden />
+                Past <span className="tabular-nums text-muted-foreground/60">{past.length}</span>
               </button>
               {showPast && (
-                <ul className="mt-2 divide-y divide-border rounded-2xl border border-border bg-card">
+                <ul className="mt-2 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card animate-in fade-in-0 slide-in-from-top-1 duration-200">
                   {past.map((s) => {
                     const row = (
                       <>
-                        <Avatar name={s.other.full_name} src={s.other.avatar_url} size="sm" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{displayName(s.other.full_name)}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {s.i_teach.name} for {s.i_learn.name}
+                        <Avatar name={s.other.full_name} src={s.other.avatar_url} size="xs" />
+                        <span className="min-w-0 flex-1 truncate text-[13px]">
+                          <span className="font-medium">{displayName(s.other.full_name)}</span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {s.i_teach.name} for {s.i_learn.name}
                           </span>
                         </span>
                         <Badge>{PAST_LABEL[s.status]}</Badge>
@@ -193,11 +184,11 @@ export default function Swaps() {
                     return (
                       <li key={s.id}>
                         {s.status === "ended" ? (
-                          <Link to={`/swaps/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50">
+                          <Link to={`/swaps/${s.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-foreground/[0.03]">
                             {row}
                           </Link>
                         ) : (
-                          <div className="flex items-center gap-3 px-4 py-3">{row}</div>
+                          <div className="flex items-center gap-3 px-4 py-2.5">{row}</div>
                         )}
                       </li>
                     );

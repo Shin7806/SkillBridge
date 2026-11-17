@@ -56,22 +56,22 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
   const isTeach = tone === "teach";
 
   return (
-    <fieldset className="space-y-2.5">
-      <legend className="text-sm font-medium">{label}</legend>
-      {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+    <fieldset className="space-y-2">
+      <legend className="text-[13px] font-medium">{label}</legend>
+      {hint && <p className="text-[13px] text-muted-foreground">{hint}</p>}
 
       {value.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="space-y-1.5">
           {value.map((choice) => {
             const name = byId.get(choice.skill_id)?.name ?? "Skill";
             return (
-              <li key={choice.skill_id} className={cn("flex items-center gap-2 rounded-xl py-1.5 pl-3.5 pr-1.5 ring-1 ring-inset", isTeach ? "bg-primary/[0.07] ring-primary/20" : "bg-learn/[0.07] ring-learn/20")}>
-                <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", isTeach ? "text-primary" : "text-learn")}>{name}</span>
+              <li key={choice.skill_id} className={cn("flex items-center gap-2 rounded-lg py-1 pl-3 pr-1 ring-1 ring-inset", isTeach ? "bg-primary/[0.07] ring-primary/20" : "bg-learn/[0.07] ring-learn/20")}>
+                <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", isTeach ? "text-primary" : "text-learn")}>{name}</span>
                 <select
                   aria-label={`${isTeach ? "Your level in" : "Your current level in"} ${name}`}
                   value={choice.level ?? ""}
                   onChange={(e) => onChange(value.map((v) => (v.skill_id === choice.skill_id ? { ...v, level: (e.target.value || null) as Level | null } : v)))}
-                  className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+                  className="h-8 rounded-md border border-input bg-background px-1.5 text-[16px] text-foreground sm:text-[13px]"
                 >
                   <option value="">Level</option>
                   {LEVELS.map((l) => (
@@ -84,7 +84,7 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
                   type="button"
                   aria-label={`Remove ${name}`}
                   onClick={() => onChange(value.filter((v) => v.skill_id !== choice.skill_id))}
-                  className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
@@ -96,7 +96,7 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
 
       {open ? (
         // Inline rather than a floating popover, so it works inside dialogs and bottom sheets and never covers the keyboard.
-        <div className="overflow-hidden rounded-xl border border-input bg-popover" onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), setOpen(false))}>
+        <div className="overflow-hidden rounded-lg border border-input bg-popover" onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), setOpen(false))}>
           <Command shouldFilter>
             <CommandInput autoFocus placeholder="Search skills…" value={search} onValueChange={setSearch} />
             <CommandList className="max-h-56">
@@ -127,7 +127,7 @@ export function SkillPicker({ tone, label, hint, value, onChange, skills, exclud
           type="button"
           disabled={full}
           onClick={() => setOpen(true)}
-          className="flex h-11 w-full items-center gap-2 rounded-xl border border-dashed border-input px-3.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
+          className="flex h-9 w-full items-center gap-2 rounded-lg border border-dashed border-input px-3.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
         >
           <Plus className="size-4" aria-hidden />
           {full ? `Up to ${max} skills` : value.length ? "Add another skill" : "Add a skill"}

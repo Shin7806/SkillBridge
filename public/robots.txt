@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /home
+Disallow: /discover
+Disallow: /swaps
+Disallow: /sessions
+Disallow: /me
+Disallow: /settings
+Disallow: /notifications
+Disallow: /welcome
+
+Sitemap: https://skill-bridge-shin7806s-projects.vercel.app/sitemap.xml

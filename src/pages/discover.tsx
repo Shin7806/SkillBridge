@@ -10,7 +10,7 @@ import { useMe } from "@/lib/auth";
 import { useAction, useAsks, useCategories, useDebounced, useDocumentTitle, useExplore, useMatches, usePerson, useSkills } from "@/lib/hooks";
 import { cn, displayName, formatDay, timeAgo } from "@/lib/utils";
 
-const GRID = "grid gap-4 md:grid-cols-2";
+const GRID = "grid gap-3 md:grid-cols-2";
 
 function Matches() {
   const matches = useMatches();
@@ -27,7 +27,7 @@ function Matches() {
         title="No matches yet"
         action={
           <>
-            <ButtonLink to="/me" variant="secondary" size="sm">
+            <ButtonLink to="/profile" variant="secondary" size="sm">
               Edit my skills
             </ButtonLink>
             <ButtonLink to="/discover?tab=explore" size="sm">
@@ -44,7 +44,7 @@ function Matches() {
   return (
     <div className="space-y-8">
       <section aria-labelledby="two-way">
-        <h2 id="two-way" className="font-sans text-base font-semibold tracking-normal">
+        <h2 id="two-way" className="text-[15px]">
           Two-way matches <span className="font-normal text-muted-foreground">· {twoWay.length}</span>
         </h2>
         <p className="mb-4 mt-1 text-sm text-muted-foreground">They teach something you want, and want something you teach.</p>
@@ -62,7 +62,7 @@ function Matches() {
       </section>
       {oneWay.length > 0 && (
         <section aria-labelledby="one-way">
-          <h2 id="one-way" className="font-sans text-base font-semibold tracking-normal">
+          <h2 id="one-way" className="text-[15px]">
             One-way matches <span className="font-normal text-muted-foreground">· {oneWay.length}</span>
           </h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">A fit in one direction. Offer one of your other skills in return.</p>
@@ -94,7 +94,7 @@ function Explore() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by skill or name, e.g. Python"
           aria-label="Search people by skill or name"
-          className="h-12 w-full rounded-xl border border-input bg-card pl-10 pr-4 text-foreground placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          className="h-10 w-full rounded-lg border border-input bg-card pl-9 pr-4 text-[16px] sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
         />
       </div>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter by category">
@@ -105,7 +105,7 @@ function Explore() {
             aria-pressed={category === c.id}
             onClick={() => setCategory(c.id)}
             className={cn(
-              "h-9 shrink-0 rounded-full px-3.5 text-sm font-medium transition-colors",
+              "h-8 shrink-0 rounded-md px-3 text-[13px] font-medium transition-colors",
               category === c.id ? "bg-foreground text-background" : "bg-raised text-muted-foreground hover:text-foreground",
             )}
           >
@@ -282,15 +282,15 @@ export default function Discover() {
 
   return (
     <Page width="wide">
-      <PageHeader title="Discover" description="People whose skills fit yours, everyone else, and open requests." action={<Link to="/me" className="text-sm text-primary hover:underline">Edit my skills</Link>} />
+      <PageHeader title="Discover" description="People whose skills fit yours, everyone else, and open requests." action={<Link to="/profile" className="text-[13px] text-muted-foreground transition-colors hover:text-foreground">Edit my skills</Link>} />
       <Tabs value={tab} onValueChange={(v) => setParams(v === "matches" ? {} : { tab: v }, { replace: true })} className="gap-6">
-        <TabsList className="h-11 w-full rounded-xl bg-raised p-1 sm:w-fit">
+        <TabsList className="h-9 w-full rounded-lg bg-raised p-0.5 sm:w-fit">
           {[
             ["matches", "Matches"],
             ["explore", "Explore"],
             ["asks", "Asks"],
           ].map(([value, label]) => (
-            <TabsTrigger key={value} value={value} className="h-9 flex-1 rounded-lg px-5 text-sm data-[state=active]:bg-background data-[state=active]:text-foreground sm:flex-none">
+            <TabsTrigger key={value} value={value} className="h-8 flex-1 rounded-md px-4 text-[13px] transition-colors data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:flex-none">
               {label}
             </TabsTrigger>
           ))}

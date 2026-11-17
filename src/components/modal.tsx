@@ -20,9 +20,9 @@ export function Modal({ open, onOpenChange, title, description, children, footer
   if (desktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-2xl border-border bg-card sm:max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-xl border-border bg-card p-5 sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">{title}</DialogTitle>
+            <DialogTitle className="text-lg">{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : <DialogDescription className="sr-only">{title}</DialogDescription>}
           </DialogHeader>
           {children}
@@ -34,9 +34,9 @@ export function Modal({ open, onOpenChange, title, description, children, footer
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[92dvh] rounded-t-3xl border-border bg-card">
+      <DrawerContent className="max-h-[92dvh] rounded-t-2xl border-border bg-card">
         <DrawerHeader className="text-left">
-          <DrawerTitle className="font-display text-xl">{title}</DrawerTitle>
+          <DrawerTitle className="text-lg">{title}</DrawerTitle>
           {description ? <DrawerDescription>{description}</DrawerDescription> : <DrawerDescription className="sr-only">{title}</DrawerDescription>}
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-2">{children}</div>

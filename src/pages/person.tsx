@@ -26,7 +26,7 @@ export default function PersonPage() {
   });
   const unblock = useAction(() => api.unblockUser(id!), { invalidate: ["person", "matches", "explore", "blocked"], success: "Unblocked" });
 
-  if (id === user.id) return <Navigate to="/me" replace />;
+  if (id === user.id) return <Navigate to="/profile" replace />;
 
   const back = (
     <Button variant="ghost" size="sm" className="-ml-2 mb-3" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/discover"))}>

@@ -10,8 +10,8 @@ import { cn, displayName, errorMessage } from "@/lib/utils";
 
 function Section({ title, description, children, danger }: { title: string; description?: string; children: ReactNode; danger?: boolean }) {
   return (
-    <Card as="section" className={cn("p-5 sm:p-6", danger && "border-destructive/30")}>
-      <h2 className="font-sans text-base font-semibold tracking-normal">{title}</h2>
+    <Card as="section" className={cn("p-4 sm:p-5", danger && "border-destructive/30")}>
+      <h2 className="text-[15px]">{title}</h2>
       {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       <div className="mt-4">{children}</div>
     </Card>

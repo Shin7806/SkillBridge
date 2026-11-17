@@ -58,16 +58,16 @@ export function PersonCardView({ person }: { person: PersonCard }) {
   const name = displayName(person.full_name);
 
   return (
-    <Card as="article" className="flex flex-col gap-4 p-5 transition-colors hover:border-foreground/15">
+    <Card as="article" className="flex flex-col gap-3 p-4 transition-[border-color,transform] duration-200 hover:-translate-y-px hover:border-foreground/15">
       <div className="flex items-start gap-3">
         <Avatar name={person.full_name} src={person.avatar_url} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-sans text-base font-semibold tracking-normal">
+          <h3 className="truncate text-sm font-medium tracking-normal">
             <Link to={`/people/${person.id}`} className="hover:underline">
               {name}
             </Link>
           </h3>
-          <p className="truncate text-sm text-muted-foreground">{person.headline || person.organization || person.location || "SkillBridge member"}</p>
+          <p className="truncate text-[12px] text-muted-foreground">{person.headline || person.organization || person.location || "SkillBridge member"}</p>
         </div>
         {kind && <Badge tone={kind.tone}>{kind.label}</Badge>}
       </div>
@@ -75,7 +75,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
       {twoWay ? (
         <SwapStrip teach={names(person.they_want)} learn={names(person.they_teach)} />
       ) : person.they_teach.length > 0 ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
           Teaches
           {person.they_teach.map((s) => (
             <SkillChip key={s.id} tone="learn">
@@ -85,7 +85,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
           which you want to learn
         </p>
       ) : person.they_want.length > 0 ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
           Wants to learn
           {person.they_want.map((s) => (
             <SkillChip key={s.id} tone="teach">
@@ -103,7 +103,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
         </div>
       )}
 
-      {person.bio && <p className="line-clamp-2 text-sm text-muted-foreground">{person.bio}</p>}
+      {person.bio && <p className="line-clamp-2 text-[13px] text-muted-foreground">{person.bio}</p>}
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
         <ButtonLink to={`/people/${person.id}`} variant="ghost" size="sm" className="-ml-2">
@@ -120,7 +120,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
 export function PersonMeta({ location, organization }: { location: string | null; organization: string | null }) {
   if (!location && !organization) return null;
   return (
-    <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+    <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
       {location && (
         <span className="inline-flex items-center gap-1.5">
           <MapPin className="size-3.5" aria-hidden />
@@ -203,7 +203,7 @@ export function ProposeSwapDialog({ person, open, onOpenChange }: { person: Pick
       {me.isSuccess && myTeaches.length === 0 ? (
         <div className="space-y-3 text-sm">
           <p className="text-muted-foreground">Add at least one skill you can teach before proposing a swap. A swap goes both ways.</p>
-          <ButtonLink to="/me" variant="secondary" size="sm">
+          <ButtonLink to="/profile" variant="secondary" size="sm">
             Add a skill to teach
           </ButtonLink>
         </div>

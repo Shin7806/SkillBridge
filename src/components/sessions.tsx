@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CalendarPlus, Check, Clock, ExternalLink, Video } from "lucide-react";
-import { Badge, Button, Card, FormError, SelectField, TextArea, TextField } from "./kit";
+import { CalendarPlus, Check, Clock, Link2, MoreHorizontal, Video, X } from "lucide-react";
+import { Badge, Button, buttonClass, FormError, SelectField, TextArea, TextField } from "./kit";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { ConfirmDialog, Modal } from "./modal";
 import * as api from "@/lib/api";
 import { useAction } from "@/lib/hooks";
@@ -184,7 +185,8 @@ function VouchDialog({ session, teacherName, open, onOpenChange }: { session: Se
   );
 }
 
-export function SessionCard({ session, swap, meId, showSwapLink }: { session: Session; swap?: Pick<Swap, "id" | "other" | "i_teach" | "i_learn"> | null; meId: string; showSwapLink?: boolean }) {
+/** Small, scannable session row. The teach/learn indicator says who teaches what; secondary actions live in a menu. */
+export function SessionCard({ session, swap, meId, showSwapLink, compact }: { session: Session; swap?: Pick<Swap, "id" | "other" | "i_teach" | "i_learn"> | null; meId: string; showSwapLink?: boolean; compact?: boolean }) {
   const [dialog, setDialog] = useState<"reschedule" | "link" | "vouch" | "cancel" | null>(null);
   const iTeach = session.teacher_id === meId;
   const other = iTeach ? session.learner : session.teacher;
@@ -195,6 +197,7 @@ export function SessionCard({ session, swap, meId, showSwapLink }: { session: Se
   const open = session.status === "proposed" || session.status === "confirmed";
   const vouched = session.vouches.some((v) => v.from_id === meId);
   const status = STATUS[session.status];
+  const toAnswer = session.status === "proposed" && !mine;
 
   const respond = useAction((accept: boolean) => api.respondToSession(session.id, accept), { invalidate: SESSION_KEYS, success: (_) => undefined });
   const cancel = useAction(() => api.cancelSession(session.id), { invalidate: SESSION_KEYS, success: "Session cancelled", onSuccess: () => setDialog(null) });
@@ -207,116 +210,119 @@ export function SessionCard({ session, swap, meId, showSwapLink }: { session: Se
     i_teach: { id: "", name: iTeach ? skill : "" },
     i_learn: { id: "", name: iTeach ? "" : skill },
   };
+  const calendar = () =>
+    downloadIcs({
+      id: session.id,
+      title: iTeach ? `Teach ${skill} to ${otherName}` : `Learn ${skill} with ${otherName}`,
+      startsAt: session.starts_at,
+      minutes: session.duration_minutes,
+      url: session.meeting_url,
+      description: session.notes ?? "SkillBridge session",
+    });
+  const hasMenu = open || (session.status === "confirmed" && !started);
 
   return (
-    <Card as="li" className={cn("p-4 sm:p-5", session.status === "cancelled" && "opacity-60")}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <p className="font-medium">
-            {iTeach ? (
-              <>
-                You teach <span className="text-primary">{skill}</span> to {otherName}
-              </>
-            ) : (
-              <>
-                {otherName} teaches you <span className="text-learn">{skill}</span>
-              </>
-            )}
+    <li
+      className={cn(
+        "group relative rounded-lg border bg-card transition-colors duration-200 hover:border-foreground/15",
+        toAnswer ? "border-primary/35" : "border-border",
+        session.status === "cancelled" && "opacity-55",
+        compact ? "p-3" : "p-3.5",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className={cn("mt-1 size-2 shrink-0 rounded-full", iTeach ? "bg-primary" : "bg-learn")} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] text-muted-foreground">
+            <span className={cn("font-medium", iTeach ? "text-primary" : "text-learn")}>{iTeach ? "You teach" : "You learn"}</span> {skill} <span className="text-muted-foreground/60">·</span> {iTeach ? "to" : "from"} {otherName}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-            <Clock className="size-3.5" aria-hidden />
+          <p className="mt-0.5 text-sm font-medium tabular-nums">
             <time dateTime={session.starts_at}>
-              {formatDay(session.starts_at)}, {formatTime(session.starts_at)} – {formatTime(sessionEnd(session.starts_at, session.duration_minutes).toISOString())}
+              {formatDay(session.starts_at)}, {formatTime(session.starts_at)}
             </time>
-            <span>· {session.duration_minutes} min</span>
+            <span className="font-normal text-muted-foreground"> · {session.duration_minutes} min</span>
           </p>
         </div>
         <Badge tone={status.tone}>{session.status === "proposed" && mine ? `Waiting for ${otherName}` : status.label}</Badge>
-      </div>
-
-      {session.notes && <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">{session.notes}</p>}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {session.status === "proposed" && !mine && (
-          <>
-            <Button size="sm" loading={respond.isPending && respond.variables === true} disabled={respond.isPending || started} onClick={() => respond.mutate(true)}>
-              <Check /> Confirm
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setDialog("reschedule")}>
-              Suggest another time
-            </Button>
-            <Button size="sm" variant="ghost" loading={respond.isPending && respond.variables === false} disabled={respond.isPending} onClick={() => respond.mutate(false)}>
-              Decline
-            </Button>
-          </>
-        )}
-
-        {session.status === "confirmed" && started && (
-          <Button size="sm" loading={complete.isPending} onClick={() => complete.mutate(undefined)}>
-            <Check /> Mark as done
-          </Button>
-        )}
-
-        {open && session.meeting_url && (
-          <a href={session.meeting_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-secondary px-3 text-sm font-medium ring-1 ring-inset ring-border hover:bg-accent">
-            <Video className="size-4" aria-hidden /> Join <ExternalLink className="size-3 opacity-60" aria-hidden />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        )}
-        {open && (
-          <Button size="sm" variant="ghost" onClick={() => setDialog("link")}>
-            {session.meeting_url ? "Change link" : "Add meeting link"}
-          </Button>
-        )}
-
-        {session.status === "confirmed" && !started && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() =>
-              downloadIcs({
-                id: session.id,
-                title: iTeach ? `Teach ${skill} to ${otherName}` : `Learn ${skill} with ${otherName}`,
-                startsAt: session.starts_at,
-                minutes: session.duration_minutes,
-                url: session.meeting_url,
-                description: session.notes ?? "SkillBridge session",
-              })
-            }
-          >
-            <CalendarPlus /> Add to calendar
-          </Button>
-        )}
-
-        {open && (session.status === "confirmed" || mine) && (
-          <Button size="sm" variant="ghost" onClick={() => setDialog("reschedule")}>
-            Change time
-          </Button>
-        )}
-        {open && (session.status === "confirmed" || mine) && (
-          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDialog("cancel")}>
-            Cancel
-          </Button>
-        )}
-
-        {session.status === "completed" &&
-          !iTeach &&
-          (vouched ? (
-            <Badge tone="success">
-              <Check className="size-3" aria-hidden /> You vouched
-            </Badge>
-          ) : (
-            <Button size="sm" variant="learn" onClick={() => setDialog("vouch")}>
-              Vouch for {otherName}
-            </Button>
-          ))}
-
-        {showSwapLink && (
-          <Link to={`/swaps/${session.swap_id}`} className="ml-auto text-sm text-muted-foreground hover:text-foreground hover:underline">
-            Open swap
-          </Link>
+        {hasMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="-mr-1.5 -mt-1" aria-label="Session options">
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-lg">
+              {session.status === "confirmed" && !started && (
+                <DropdownMenuItem onSelect={calendar}>
+                  <CalendarPlus /> Add to calendar
+                </DropdownMenuItem>
+              )}
+              {open && (
+                <DropdownMenuItem onSelect={() => setDialog("link")}>
+                  <Link2 /> {session.meeting_url ? "Change meeting link" : "Add meeting link"}
+                </DropdownMenuItem>
+              )}
+              {open && (session.status === "confirmed" || mine) && (
+                <DropdownMenuItem onSelect={() => setDialog("reschedule")}>
+                  <Clock /> Change time
+                </DropdownMenuItem>
+              )}
+              {open && (session.status === "confirmed" || mine) && (
+                <DropdownMenuItem onSelect={() => setDialog("cancel")} className="text-destructive focus:text-destructive">
+                  <X /> Cancel session
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
+
+      {session.notes && !compact && <p className="mt-2 pl-5 text-[13px] text-muted-foreground">{session.notes}</p>}
+
+      {(toAnswer || (session.status === "confirmed" && (started || session.meeting_url)) || (session.status === "completed" && !iTeach) || showSwapLink) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-5">
+          {toAnswer && (
+            <>
+              <Button size="sm" loading={respond.isPending && respond.variables === true} disabled={respond.isPending || started} onClick={() => respond.mutate(true)}>
+                <Check /> Confirm
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setDialog("reschedule")}>
+                Other time
+              </Button>
+              <Button size="sm" variant="ghost" loading={respond.isPending && respond.variables === false} disabled={respond.isPending} onClick={() => respond.mutate(false)}>
+                Decline
+              </Button>
+            </>
+          )}
+          {session.status === "confirmed" && started && (
+            <Button size="sm" loading={complete.isPending} onClick={() => complete.mutate(undefined)}>
+              <Check /> Mark as done
+            </Button>
+          )}
+          {open && session.meeting_url && (
+            <a href={session.meeting_url} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm")}>
+              <Video /> Join call
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          )}
+          {session.status === "completed" &&
+            !iTeach &&
+            (vouched ? (
+              <Badge tone="success">
+                <Check className="size-3" aria-hidden /> You vouched
+              </Badge>
+            ) : (
+              <Button size="sm" variant="learn" onClick={() => setDialog("vouch")}>
+                Vouch for {otherName}
+              </Button>
+            ))}
+          {showSwapLink && (
+            <Link to={`/swaps/${session.swap_id}`} className="ml-auto text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+              View swap →
+            </Link>
+          )}
+        </div>
+      )}
 
       <SessionDialog swap={swapForDialog} session={session} meId={meId} open={dialog === "reschedule"} onOpenChange={(o) => setDialog(o ? "reschedule" : null)} />
       <LinkDialog session={session} open={dialog === "link"} onOpenChange={(o) => setDialog(o ? "link" : null)} />
@@ -331,7 +337,7 @@ export function SessionCard({ session, swap, meId, showSwapLink }: { session: Se
         loading={cancel.isPending}
         onConfirm={() => cancel.mutate(undefined)}
       />
-    </Card>
+    </li>
   );
 }
 
