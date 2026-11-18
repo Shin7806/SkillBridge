@@ -89,6 +89,13 @@
     overflow-x: clip;
     background: var(--background);
   }
+  @media (max-width: 767px) {
+    html.chat-open,
+    html.chat-open body {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+  }
   html::-webkit-scrollbar {
     display: none;
   }
@@ -160,6 +167,9 @@
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+  }
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);

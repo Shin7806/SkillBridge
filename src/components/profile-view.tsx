@@ -41,64 +41,74 @@ export function ProfileView({ person, actions, avatar }: { person: Person; actio
     { value: person.sessions_received, label: "learned" },
     { value: person.vouch_count, label: person.vouch_count === 1 ? "vouch" : "vouches" },
   ];
+  const since = new Date(person.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const socials = [
+    person.github_url && { href: person.github_url, label: "GitHub", icon: Github },
+    person.linkedin_url && { href: person.linkedin_url, label: "LinkedIn", icon: Linkedin },
+  ].filter(Boolean) as { href: string; label: string; icon: typeof Github }[];
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        {avatar ?? <Avatar name={person.full_name} src={person.avatar_url} size="xl" />}
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl">{name}</h1>
-          {person.headline && <p className="mt-0.5 text-[15px] text-muted-foreground">{person.headline}</p>}
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <PersonMeta location={person.location} organization={person.organization} />
-            <span className="text-[13px] text-muted-foreground">Member since {formatDay(person.created_at)}</span>
+      <Card className="relative overflow-hidden">
+        <div aria-hidden className="h-20 bg-[radial-gradient(120%_140%_at_0%_0%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_60%),radial-gradient(100%_140%_at_100%_0%,color-mix(in_oklab,var(--learn)_18%,transparent),transparent_60%)] sm:h-24" />
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+          <div className="-mt-10 flex items-end justify-between gap-3 sm:-mt-12">
+            <div className="rounded-full ring-4 ring-card">{avatar ?? <Avatar name={person.full_name} src={person.avatar_url} size="xl" />}</div>
+            {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
           </div>
-          <dl className="mt-3 flex gap-5 text-[13px]">
+          <div className="mt-3 min-w-0">
+            <h1 className="text-2xl">{name}</h1>
+            {person.headline && <p className="mt-0.5 text-[15px] text-muted-foreground">{person.headline}</p>}
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <PersonMeta location={person.location} organization={person.organization} />
+              <span className="text-[13px] text-muted-foreground">Joined {since}</span>
+            </div>
+            {socials.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {socials.map(({ href, label, icon: Icon }) => (
+                  <a key={label} href={href} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[13px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground">
+                    <Icon className="size-3.5" aria-hidden /> {label}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          <dl className="mt-4 grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-background/40">
             {stats.map((s) => (
-              <div key={s.label} className="flex items-baseline gap-1.5">
-                <dd className="text-base font-semibold tabular-nums text-foreground">{s.value}</dd>
-                <dt className="text-muted-foreground">{s.label}</dt>
+              <div key={s.label} className="px-3 py-2.5 text-center">
+                <dd className="text-lg font-semibold tabular-nums text-foreground">{s.value}</dd>
+                <dt className="text-[12px] text-muted-foreground">{s.label}</dt>
               </div>
             ))}
           </dl>
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-      </header>
+      </Card>
 
-      {person.bio && (
+      {(person.bio || person.learning_goals.length > 0) && (
         <Section title="About">
-          <p className="max-w-prose whitespace-pre-line text-sm leading-relaxed text-foreground/85">{person.bio}</p>
+          <Card className="space-y-3 p-4">
+            {person.bio && <p className="max-w-prose whitespace-pre-line text-sm leading-relaxed text-foreground/85">{person.bio}</p>}
+            {person.learning_goals.length > 0 && (
+              <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+                Here to
+                {person.learning_goals.map((g) => (
+                  <SkillChip key={g}>{g}</SkillChip>
+                ))}
+              </p>
+            )}
+          </Card>
         </Section>
       )}
 
       <Section title="Skills">
-        <Card className="grid gap-5 p-4 sm:grid-cols-2">
-          <SkillList title="Can teach" skills={person.teaches} tone="teach" empty="No teaching skills listed yet." />
-          <SkillList title="Wants to learn" skills={person.learns} tone="learn" empty="No learning goals listed yet." />
-        </Card>
-      </Section>
-
-      {(person.learning_goals.length > 0 || person.github_url || person.linkedin_url) && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          {person.learning_goals.length > 0 && (
-            <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
-              Here to
-              {person.learning_goals.map((g) => (
-                <SkillChip key={g}>{g}</SkillChip>
-              ))}
-            </p>
-          )}
-          {person.github_url && (
-            <a href={person.github_url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
-              <Github className="size-3.5" aria-hidden /> GitHub
-            </a>
-          )}
-          {person.linkedin_url && (
-            <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
-              <Linkedin className="size-3.5" aria-hidden /> LinkedIn
-            </a>
-          )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card className="p-4">
+            <SkillList title="Can teach" skills={person.teaches} tone="teach" empty="No teaching skills listed yet." />
+          </Card>
+          <Card className="p-4">
+            <SkillList title="Wants to learn" skills={person.learns} tone="learn" empty="No learning goals listed yet." />
+          </Card>
         </div>
-      )}
+      </Section>
 
       <Section title="Vouches" count={person.vouch_count}>
         {person.vouches.length ? (

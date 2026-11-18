@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, FileText, ImageIcon, Loader2, Lock, MessageSquare, Paperclip, Plus, SendHorizontal, X } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { toast } from "sonner";
 import { Button, EmptyState, LoadError, Spinner } from "./kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -29,22 +30,45 @@ function Attachment({ message, mine }: { message: Message; mine: boolean }) {
   };
 
   if (image) {
+    const name = message.attachment_name ?? "Image";
     return (
-      <a
-        href={url.data}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block overflow-hidden rounded-xl bg-raised ring-1 ring-border transition-opacity hover:opacity-90"
-        aria-label={`Open image ${message.attachment_name}`}
-      >
-        {url.data ? (
-          <img src={url.data} alt={message.attachment_name ?? "Image"} loading="lazy" className="max-h-72 max-w-full object-contain" />
-        ) : (
-          <span className="grid h-40 w-56 place-items-center text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          </span>
-        )}
-      </a>
+      <DialogPrimitive.Root>
+        <DialogPrimitive.Trigger asChild>
+          <button type="button" disabled={!url.data} className="block overflow-hidden rounded-xl bg-raised ring-1 ring-border transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`View image ${name}`}>
+            {url.data ? (
+              <img src={url.data} alt={name} loading="lazy" className="max-h-72 max-w-full object-contain" />
+            ) : (
+              <span className="grid h-40 w-56 place-items-center text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              </span>
+            )}
+          </button>
+        </DialogPrimitive.Trigger>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 sm:bg-black/75" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="fixed inset-0 z-[70] flex flex-col focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[80vh] sm:w-auto sm:max-w-[min(56rem,90vw)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-hidden sm:rounded-xl sm:border sm:border-border sm:bg-card sm:shadow-2xl"
+          >
+            <div className="pt-safe flex shrink-0 items-center gap-2 px-3 py-2 text-white sm:border-b sm:border-border sm:text-foreground">
+              <DialogPrimitive.Title className="min-w-0 flex-1 truncate text-[13px] font-medium">{name}</DialogPrimitive.Title>
+              <Button variant="ghost" size="icon" onClick={download} aria-label="Download image" className="text-inherit">
+                <Download />
+              </Button>
+              <DialogPrimitive.Close asChild>
+                <Button variant="ghost" size="icon" aria-label="Close preview" className="text-inherit">
+                  <X />
+                </Button>
+              </DialogPrimitive.Close>
+            </div>
+            <DialogPrimitive.Close asChild>
+              <div className="flex min-h-0 flex-1 items-center justify-center p-2 sm:p-3" aria-hidden>
+                {url.data && <img src={url.data} alt="" className="max-h-full max-w-full object-contain sm:max-h-[calc(80vh-4.5rem)]" onClick={(e) => e.stopPropagation()} />}
+              </div>
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     );
   }
   return (

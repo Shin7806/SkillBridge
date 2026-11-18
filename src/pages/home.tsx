@@ -39,6 +39,35 @@ function Stat({ value, label, to, onClick, tone }: { value: number | undefined; 
   );
 }
 
+const QUOTES: [string, string][] = [
+  ["While we teach, we learn.", "Seneca"],
+  ["Tell me and I forget. Involve me and I learn.", "Proverb"],
+  ["Learning never exhausts the mind.", "Leonardo da Vinci"],
+  ["The beautiful thing about learning is nobody can take it away from you.", "B.B. King"],
+  ["To teach is to learn twice.", "Joseph Joubert"],
+  ["Live as if you were to die tomorrow. Learn as if you were to live forever.", "Gandhi"],
+  ["An investment in knowledge pays the best interest.", "Benjamin Franklin"],
+  ["Anyone who stops learning is old.", "Henry Ford"],
+  ["Knowledge shared is knowledge multiplied.", "Proverb"],
+  ["The expert in anything was once a beginner.", "Helen Hayes"],
+  ["Real knowledge is to know the extent of one's ignorance.", "Confucius"],
+  ["Curiosity is the wick in the candle of learning.", "William Arthur Ward"],
+  ["We learn more by looking for the answer than by finding it.", "Lloyd Alexander"],
+  ["Every expert started by asking someone for help.", "SkillBridge"],
+];
+
+/** Same quote all day, a new one tomorrow. */
+function DailyQuote() {
+  const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60_000) / 86_400_000);
+  const [text, author] = QUOTES[day % QUOTES.length];
+  return (
+    <figure className="max-w-sm border-l-2 border-primary/50 pl-3 sm:text-right sm:border-l-0 sm:border-r-2 sm:pl-0 sm:pr-3">
+      <blockquote className="text-[13px] italic leading-relaxed text-foreground/80">“{text}”</blockquote>
+      <figcaption className="mt-1 text-[11px] text-muted-foreground">— {author}</figcaption>
+    </figure>
+  );
+}
+
 export default function Home() {
   useDocumentTitle("Home");
   const { user, profile } = useMe();
@@ -68,11 +97,19 @@ export default function Home() {
 
   return (
     <Page>
-      <header className="mb-6">
-        <h1 className="text-xl sm:text-2xl">
-          {greeting()}, {firstName(profile.full_name)}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{loading ? "Checking what's new…" : todos.length ? `${todos.length} ${todos.length === 1 ? "thing needs" : "things need"} you.` : "You're all caught up."}</p>
+      <header className="relative mb-7 overflow-hidden rounded-2xl border border-border bg-card px-5 py-6 sm:px-7 sm:py-7">
+        {/* Quiet backdrop: two soft brand glows over a faint grid that fades out. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_0%_0%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_70%),radial-gradient(50%_80%_at_100%_100%,color-mix(in_oklab,var(--learn)_12%,transparent),transparent_70%)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_oklab,var(--foreground)_6%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_6%,transparent)_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(80%_100%_at_70%_0%,black,transparent)]" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl">
+              {greeting()}, {firstName(profile.full_name)}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">{loading ? "Checking what's new…" : todos.length ? `${todos.length} ${todos.length === 1 ? "thing needs" : "things need"} you.` : "You're all caught up."}</p>
+          </div>
+          <DailyQuote />
+        </div>
       </header>
 
       {failed ? (

@@ -182,10 +182,16 @@ export default function Messages() {
   );
   const shown = conversations.filter((c) => !query.trim() || displayName(c.other.full_name).toLowerCase().includes(query.trim().toLowerCase()));
   const current = isUuid(id) ? conversations.find((c) => c.id === id) : undefined;
+  // On phones an open chat owns the screen: stop the page behind it from scrolling.
+  useEffect(() => {
+    if (!id) return;
+    document.documentElement.classList.add("chat-open");
+    return () => document.documentElement.classList.remove("chat-open");
+  }, [id]);
   useDocumentTitle(current ? `${firstName(current.other.full_name)} · Messages` : "Messages");
 
   return (
-    <div className={cn("flex md:h-[calc(100dvh-3.5rem)]", id ? "pb-safe h-dvh md:pb-0" : "h-[calc(100dvh-3.5rem-3.5rem-env(safe-area-inset-bottom))]")}>
+    <div className={cn("flex md:h-[calc(100dvh-3.5rem)]", id ? "pb-safe fixed inset-x-0 top-0 z-40 h-dvh bg-background md:static md:z-auto md:pb-0" : "h-[calc(100dvh-3.5rem-3.5rem-env(safe-area-inset-bottom))]")}>
       <section aria-label="Conversations" className={cn("flex w-full shrink-0 flex-col border-r border-border md:w-80", id && "hidden md:flex")}>
         <div className="space-y-3 border-b border-border p-3">
           <h1 className="px-1 text-lg">Messages</h1>

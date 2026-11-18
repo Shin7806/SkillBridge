@@ -70,7 +70,7 @@ export function PersonCardView({ person }: { person: PersonCard }) {
   const name = displayName(person.full_name);
 
   return (
-    <Card as="article" className="flex flex-col gap-3 p-4 transition-[border-color,transform] duration-200 hover:-translate-y-px hover:border-foreground/15">
+    <Card as="article" className="flex min-w-0 flex-col gap-3 break-words p-4 transition-[border-color,transform] duration-200 hover:-translate-y-px hover:border-foreground/15">
       <div className="flex items-start gap-3">
         <Avatar name={person.full_name} src={person.avatar_url} />
         <div className="min-w-0 flex-1">
