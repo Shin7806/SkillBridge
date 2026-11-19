@@ -34,7 +34,7 @@ export function About() {
       <section>
         <h2>Who built it</h2>
         <p>
-          SkillBridge is a final-year BCA project. The source code is on <a href="https://github.com/Shin7806/SkillBridge" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          SkillBridge started as a final-year BCA project and keeps growing. The source code is on <a href="https://github.com/Shin7806/SkillBridge" target="_blank" rel="noopener noreferrer">GitHub</a>.
         </p>
       </section>
     </Article>

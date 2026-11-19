@@ -186,3 +186,49 @@
     scroll-behavior: auto !important;
   }
 }
+
+@keyframes sb-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Cursor-following glow on landing cards (positions come from trackSpotlight). */
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--learn) 12%, transparent), transparent 70%);
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* Card whose border and surface light up around the cursor, only while hovered. */
+.spotlight-card::before,
+.spotlight-card::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+  border-radius: inherit;
+}
+.spotlight-card::before {
+  inset: -1px;
+  padding: 1px;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--primary) 70%, transparent), color-mix(in oklab, var(--learn) 40%, transparent) 40%, transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.spotlight-card::after {
+  inset: 0;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--primary) 7%, transparent), transparent 70%);
+}
+.spotlight-card:hover::before,
+.spotlight-card:hover::after {
+  opacity: 1;
+}

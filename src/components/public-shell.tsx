@@ -204,7 +204,7 @@ export function PublicFooter() {
         </div>
       </div>
       <div className="border-t border-border">
-        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-muted-foreground sm:px-6">Built as a BCA final-year project. Free to use, with no ads and no tracking.</p>
+        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-muted-foreground sm:px-6">Started as a BCA final-year project, and still growing. Free to use, with no ads and no tracking.</p>
       </div>
     </footer>
   );

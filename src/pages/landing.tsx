@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, LazyMotion, MotionConfig, domMax, m, useInView } from "motion/react";
-import NumberFlow from "@number-flow/react";
+import { useEffect, useState, type PointerEvent, type ReactNode } from "react";
+import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from "motion/react";
 import * as Accordion from "@radix-ui/react-accordion";
-import { ArrowRight, BadgeCheck, Check, ChevronDown, EyeOff, Lock, Mail, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, BadgeCheck, Check, ChevronDown, EyeOff, Lock, Mail, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
 import { ButtonLink } from "@/components/kit";
 import { PublicShell } from "@/components/public-shell";
 import { DemoPlayer, type DemoStep } from "@/components/landing/demo-player";
+import { BraidedStrings, SkillMarquee } from "@/components/landing/strings";
 import { ChatScene, chatSteps, MatchScene, matchSteps, ProposeScene, proposeSteps, ScheduleScene, scheduleSteps } from "@/components/landing/scenes";
 import { useAuth } from "@/lib/auth";
-import { useDocumentTitle, usePublicStats } from "@/lib/hooks";
+import { useDocumentTitle } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -43,25 +43,27 @@ function PrimaryCta({ label }: { label?: string }) {
 }
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
-function LiveNumbers() {
-  const stats = usePublicStats();
-  const ref = useRef<HTMLParagraphElement>(null);
-  const seen = useInView(ref, { once: true });
-  const d = stats.data;
+function LivePill() {
+  const { user } = useAuth();
   return (
-    <p ref={ref} className="flex min-h-5 items-center justify-center gap-2 text-[13px] text-muted-foreground">
-      {d && d.members > 0 && (
-        <>
-          <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
-            <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-          </span>
-          <span>
-            <NumberFlow value={seen ? d.members : 0} className="font-medium tabular-nums text-foreground" /> members sharing <NumberFlow value={seen ? d.skills : 0} className="font-medium tabular-nums text-foreground" /> skills
-          </span>
-        </>
-      )}
-    </p>
+    <a
+      href={user ? "/home" : "/signup"}
+      className="group inline-flex items-center gap-2.5 rounded-full border border-border bg-card/60 py-1 pl-2 pr-3 text-[13px] text-muted-foreground backdrop-blur transition-[border-color,color,background-color] duration-200 hover:border-learn/40 hover:bg-card hover:text-foreground"
+    >
+      <span className="flex -space-x-1.5" aria-hidden>
+        {["bg-primary", "bg-learn", "bg-foreground/70"].map((c, i) => (
+          <span key={c} className={cn("size-4 rounded-full ring-2 ring-background", c)} style={{ opacity: 1 - i * 0.2 }} />
+        ))}
+      </span>
+      <span className="relative flex size-1.5" aria-hidden>
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
+        <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+      </span>
+      <span>
+        People are swapping skills right now. <span className="font-medium text-foreground">Join in</span>
+      </span>
+      <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+    </a>
   );
 }
 
@@ -72,10 +74,11 @@ function Hero() {
         className="pointer-events-none absolute inset-x-0 -top-16 -z-10 h-[560px] opacity-50 [background-image:radial-gradient(var(--border)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_55%_60%_at_50%_20%,black,transparent)]"
         aria-hidden
       />
-      <div className="mx-auto max-w-3xl px-4 pb-20 pt-16 text-center sm:px-6 sm:pb-28 sm:pt-24">
-        <m.p className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[12px] text-muted-foreground" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
-          Free peer-to-peer skill exchange
-        </m.p>
+      <div className="pointer-events-none absolute left-1/2 top-24 -z-10 h-72 w-[min(56rem,100%)] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_14%,transparent),transparent),radial-gradient(closest-side_at_70%_60%,color-mix(in_oklab,var(--learn)_10%,transparent),transparent)] blur-2xl" aria-hidden />
+      <div className="mx-auto max-w-3xl px-4 pb-10 pt-14 text-center sm:px-6 sm:pb-14 sm:pt-24">
+        <m.div className="mb-7" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
+          <LivePill />
+        </m.div>
         <m.h1 className="text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl lg:text-[4.25rem]" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease, delay: 0.05 }}>
           Teach what you know.
           <span className="mt-1 block font-serif text-[1.1em] font-normal italic tracking-[-0.01em] text-primary">Learn what you don't.</span>
@@ -89,10 +92,18 @@ function Hero() {
             How it works
           </a>
         </m.div>
-        <m.div className="mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.35 }}>
-          <LiveNumbers />
-        </m.div>
+        <m.p className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.3 }}>
+          {["Free forever", "No credits", "Two-way matching"].map((t) => (
+            <span key={t} className="inline-flex items-center gap-1.5">
+              <Check className="size-3.5 text-learn" aria-hidden /> {t}
+            </span>
+          ))}
+        </m.p>
       </div>
+      <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.2, delay: 0.45 }}>
+        <BraidedStrings className="-mt-6 sm:-mt-10" />
+        <SkillMarquee className="mx-auto mt-4 max-w-5xl px-4 pb-16 sm:mt-6 sm:pb-24" />
+      </m.div>
     </section>
   );
 }
@@ -211,14 +222,24 @@ const SAFETY: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Trash2, title: "Delete everything", text: "One button removes your account and what you added." },
 ];
 
+/** Feeds the pointer position to each card so its spotlight follows the cursor. */
+function trackSpotlight(e: PointerEvent<HTMLElement>) {
+  const els = [e.currentTarget, ...e.currentTarget.querySelectorAll<HTMLElement>(".spotlight")];
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    el.style.setProperty("--my", `${e.clientY - r.top}px`);
+  }
+}
+
 function Safety() {
   return (
     <section id="safety" className="scroll-mt-16 border-t border-border bg-card/30">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
         <Heading eyebrow="Safety and privacy" title="You're meeting strangers. It should feel safe." />
-        <ul className="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <ul onPointerMove={trackSpotlight} className="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {SAFETY.map(({ icon: Icon, title, text }, i) => (
-            <Reveal as="li" key={title} delay={(i % 3) * 0.05} className="group bg-background p-5 transition-colors duration-200 hover:bg-card">
+            <Reveal as="li" key={title} delay={(i % 3) * 0.05} className="spotlight group relative bg-background p-5 transition-colors duration-200 hover:bg-card">
               <Icon className="size-[18px] text-learn transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden />
               <h3 className="mt-3 text-[15px]">{title}</h3>
               <p className="mt-1 text-[14px] leading-relaxed text-muted-foreground">{text}</p>
@@ -280,19 +301,59 @@ function Faq() {
   );
 }
 
+const PAIRS: [string, string][] = [
+  ["Python", "Photoshop"],
+  ["Guitar", "Spanish"],
+  ["Figma", "Cooking"],
+  ["SQL", "Public speaking"],
+  ["Photography", "Piano"],
+];
+
+/** A tiny swap card that keeps trading one pair of skills for the next. */
+function SwapTicker() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % PAIRS.length), 2600);
+    return () => clearInterval(id);
+  }, []);
+  const [teach, learn] = PAIRS[i];
+  const chip = "inline-flex h-9 min-w-[7.5rem] items-center justify-center rounded-lg px-3 text-[14px] font-medium ring-1 ring-inset";
+  return (
+    <div className="flex items-center justify-center gap-3" aria-hidden>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <m.span key={`t-${teach}`} className={cn(chip, "bg-primary/10 text-primary ring-primary/25")} initial={{ opacity: 0, y: 10, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -10, filter: "blur(4px)" }} transition={{ duration: 0.45, ease }}>
+          {teach}
+        </m.span>
+      </AnimatePresence>
+      <m.span key={`x-${i}`} className="grid size-8 place-items-center rounded-full bg-background ring-1 ring-border" initial={{ rotate: -180 }} animate={{ rotate: 0 }} transition={{ duration: 0.6, ease }}>
+        <ArrowLeftRight className="size-3.5 text-muted-foreground" />
+      </m.span>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <m.span key={`l-${learn}`} className={cn(chip, "bg-learn/10 text-learn ring-learn/25")} initial={{ opacity: 0, y: 10, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -10, filter: "blur(4px)" }} transition={{ duration: 0.45, ease, delay: 0.08 }}>
+          {learn}
+        </m.span>
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function FinalCta() {
   return (
     <section className="border-t border-border">
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 sm:py-28">
+      <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6 sm:py-28">
         <Reveal>
-          <p className="font-serif text-2xl italic text-primary">Everyone has something to teach.</p>
-          <h2 className="mt-2 text-3xl leading-tight tracking-[-0.035em] sm:text-4xl">Your first swap is one good match away.</h2>
-          <p className="mx-auto mt-3 max-w-md text-[15px] text-muted-foreground">Free to join. Two minutes to set up.</p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-            <PrimaryCta label="Create your account" />
-            <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-              <Check className="size-3.5 text-learn" aria-hidden /> No card. No credits. No ads.
-            </span>
+          <div onPointerMove={trackSpotlight} className="spotlight-card group relative rounded-3xl border border-border bg-card transition-colors duration-300 hover:border-foreground/15">
+            <div className="relative isolate overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12 sm:py-20">
+              <SwapTicker />
+              <h2 className="mx-auto mt-8 max-w-xl text-3xl leading-tight tracking-[-0.035em] sm:text-5xl">
+                Your first swap is <span className="font-serif font-normal italic text-primary">one good match</span> away.
+              </h2>
+              <p className="mx-auto mt-4 max-w-md text-[16px] text-muted-foreground">Add one skill you know and one you want. We'll find the people who fit.</p>
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <PrimaryCta label="Create your free account" />
+                <span className="text-[13px] text-muted-foreground">Free forever · No card · No ads</span>
+              </div>
+            </div>
           </div>
         </Reveal>
       </div>
