@@ -344,6 +344,7 @@ function FinalCta() {
         <Reveal>
           <div onPointerMove={trackSpotlight} className="spotlight-card group relative rounded-3xl border border-border bg-card transition-colors duration-300 hover:border-foreground/15">
             <div className="relative isolate overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12 sm:py-20">
+              <div className="pointer-events-none absolute inset-0 -z-10 [background-image:linear-gradient(to_right,color-mix(in_oklab,var(--foreground)_6%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_6%,transparent)_1px,transparent_1px)] [background-size:40px_40px] [background-position:center] [mask-image:radial-gradient(ellipse_60%_70%_at_50%_50%,black,transparent)]" aria-hidden />
               <SwapTicker />
               <h2 className="mx-auto mt-8 max-w-xl text-3xl leading-tight tracking-[-0.035em] sm:text-5xl">
                 Your first swap is <span className="font-serif font-normal italic text-primary">one good match</span> away.

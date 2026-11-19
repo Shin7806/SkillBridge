@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in SkillBridge doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected to see instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Messages
+        2. Open a conversation
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options: [Desktop, Phone, Tablet]
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 131, Safari 18 on iOS …
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Please blur names, emails and messages that aren't yours.
+  - type: markdown
+    attributes:
+      value: Found a security problem? Don't file it here. See SECURITY.md.

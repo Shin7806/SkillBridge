@@ -1,77 +1,101 @@
+<div align="center">
+
+<img src="public/logo.png" alt="" width="72" height="72" />
+
 # SkillBridge
 
-A free peer-to-peer skill exchange. You teach something you know, someone teaches you something you want to learn, and no money changes hands.
+**Teach what you know. Learn what you don't.**
 
-## What it does
+A free peer-to-peer skill exchange. SkillBridge finds people who teach the skill you want and want a skill you have. You swap lessons. Nobody pays.
 
-- **Accounts** — email and password or Google, email confirmation, forgot and reset password.
-- **Onboarding** — name, photo, skills you teach and skills you want to learn (with levels). You can't enter the app without at least one of each.
-- **Matching** — computed in the database from real skill lists. Two-way matches come first with the exact skills shown; one-way matches are labelled.
-- **Discover** — matches, a searchable directory filtered by category, and an Asks board for specific requests.
-- **Swaps** — propose one skill each way with a short message. The other person accepts or declines. One open swap per pair.
-- **Chat** — opens only when a swap is accepted, visible only to its two members, delivered in realtime.
-- **Sessions** — suggest a time, the other person confirms or suggests another. Stored as an absolute instant and shown in each person's timezone. Bring your own meeting link. Calendar (.ics) download.
-- **Progress** — sessions taught and learned per swap and per profile. Learners can vouch for teachers after a completed session.
-- **Notifications** — stored, with read state, for proposals, answers, messages and session changes.
-- **Privacy and safety** — hide your profile from Discover, block, report, delete your account.
+[Live site](https://skill-bridge-shin7806s-projects.vercel.app) · [Docs](docs/README.md) · [Report a bug](https://github.com/Shin7806/SkillBridge/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/Shin7806/SkillBridge/issues/new?template=feature_request.yml)
 
-There are no payments, credits, ratings out of five, leaderboards or video calls. See `REDESIGN_PLAN.md` for why.
+[![CI](https://github.com/Shin7806/SkillBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Shin7806/SkillBridge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f5b301.svg)](LICENSE)
 
-## Stack
+<img src="public/og-image.png" alt="SkillBridge landing page" width="760" />
 
-React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query, Radix primitives, Sonner, Vaul and cmdk on the front end. Supabase (Postgres, Auth, Storage, Realtime) on the back end. Deployed as a static site on Vercel.
+</div>
 
-Every rule that matters lives in Postgres: row level security on every table, and `security definer` functions for anything with a business rule (`propose_swap`, `respond_to_swap`, `propose_session`, `add_vouch` and so on). The browser uses the publishable key only.
+## How it works
 
-## Run it locally
+1. **Get matched.** List what you can teach and what you want to learn. Two-way matches (they teach what you want and want what you teach) come first, with the exact skills shown.
+2. **Propose a swap.** Pick one skill each way and add a short note. They accept or decline.
+3. **Chat once they say yes.** Every accepted swap gets a private conversation. Nobody can message you before that.
+4. **Book sessions together.** Suggest a time, the other person confirms. Each of you sees it in your own timezone.
+
+## Features
+
+| Area | What you get |
+|---|---|
+| Accounts | Email and password or Google, email confirmation, password reset, guided onboarding |
+| Matching | Computed in Postgres from real skill lists; two-way first, one-way labelled |
+| Discover | Matches, a searchable directory by category, and an Asks board for specific requests |
+| Swaps | One skill each way, accept or decline, one open swap per pair, end any time |
+| Messages | Realtime chat per accepted swap, photo and file attachments up to 4 MB in private storage |
+| Sessions | Propose, confirm or reschedule, timezone-aware, bring your own meeting link, `.ics` download, an overview of every session |
+| Progress | Sessions taught and learned per swap and per profile; learners vouch for teachers after a session |
+| Safety | Email never shown, hide from Discover, block, report, delete your account |
+
+There are deliberately no payments, credits, star ratings or leaderboards. [docs/redesign-plan.md](docs/redesign-plan.md) explains why.
+
+## Tech stack
+
+- **Front end:** React 19, TypeScript, Vite 6, Tailwind CSS 4, TanStack Query, React Router 7, Radix primitives, Motion, Sonner, Vaul, cmdk
+- **Back end:** Supabase (Postgres with row level security, Auth, Storage, Realtime)
+- **Hosting:** static build on Vercel
+
+Every rule that matters is enforced in the database: row level security on every table, and `security definer` functions for anything with a business rule (`propose_swap`, `respond_to_swap`, `propose_session`, `add_vouch` and others). The browser only ever holds the publishable key. More in [docs/architecture.md](docs/architecture.md).
+
+## Getting started
+
+You need **Node.js 20 or newer** and a **Supabase project**.
 
 ```bash
+git clone https://github.com/Shin7806/SkillBridge.git
+cd SkillBridge
 npm install
-```
-
-Copy `.env.example` to `.env` and fill in your Supabase project URL and publishable key, then:
-
-```bash
+cp .env.example .env   # then fill in your Supabase URL and publishable key
 npm run dev
 ```
 
-The app runs at `http://localhost:5199`.
+The app runs at http://localhost:5199. To set up the database for a new Supabase project, follow [docs/database.md](docs/database.md).
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Start the dev server |
+| `npm run dev` | Start the dev server on port 5199 |
 | `npm run typecheck` | Type check with `tsc` |
 | `npm run build` | Type check, then build to `dist/` |
-| `npm run test:e2e` | Run the two-user end-to-end test against the configured Supabase project |
-
-The end-to-end test signs in as three test accounts and exercises matching, proposals, chat (including realtime delivery), sessions, Asks, privacy, blocking and anonymous access through the same HTTP API the app uses. It needs a `.env.test` file with `E2E_PASSWORD`, `E2E_ALICE`, `E2E_BEN` and `E2E_CARA`. That file is git-ignored.
-
-## Database
-
-Migrations are in `supabase/migrations/` and are the source of truth for the schema, policies and functions. The tables from the first version of the app (`swap_requests`, `conversations`, `messages`, `sessions`) were moved to a `legacy` schema that the API cannot reach; they have not been dropped.
-
-## Deploying
-
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's environment variables. `.env` is no longer committed.
-
-In Supabase → Authentication → URL Configuration, the redirect allow-list must include `<your-site>/auth/callback` and `<your-site>/reset-password`.
+| `npm run preview` | Serve the production build locally |
+| `npm run test:e2e` | End-to-end test against your Supabase project (needs `.env.test`, see [docs/testing.md](docs/testing.md)) |
 
 ## Project structure
 
 ```
 src/
-  App.tsx            routes and guards
-  lib/               supabase client, api calls, query hooks, auth, types, utils
-  components/        shared UI (kit, modal, skill picker, people, sessions, profile view)
-  components/ui/     Radix-based primitives
-  layouts/           signed-in app shell
-  pages/             one file per screen
-scripts/e2e.mjs      end-to-end test
-supabase/migrations  schema, functions, policies
+  App.tsx              routes and auth guards
+  lib/                 Supabase client, API calls, query hooks, auth, types, utils
+  components/          shared UI: kit, chat, sessions, people, profile view, skill picker
+  components/ui/       Radix-based primitives
+  components/landing/  landing page demos and motion
+  layouts/             signed-in app shell (sidebar, top bar, sessions panel)
+  pages/               one file per screen
+scripts/e2e.mjs        end-to-end test
+supabase/bootstrap/    starting point for a brand-new Supabase project
+supabase/migrations/   schema, functions, policies, storage
+docs/                  architecture, database, deployment, testing
 ```
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and report security problems privately as described in [SECURITY.md](SECURITY.md).
+
+## Background
+
+SkillBridge started as a BCA final-year project and is still being developed.
 
 ## License
 
-MIT
+[MIT](LICENSE)

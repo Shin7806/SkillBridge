@@ -2,7 +2,17 @@
   "name": "skillbridge",
   "private": true,
   "version": "2.0.0",
+  "description": "A free peer-to-peer skill exchange: teach what you know, learn what you don't.",
+  "license": "MIT",
   "type": "module",
+  "homepage": "https://skill-bridge-shin7806s-projects.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shin7806/SkillBridge.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
